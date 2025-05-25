@@ -29,11 +29,30 @@ alwaysApply: false
 - **Mark completed tasks in `TASKS.md`** immediately after finishing them.
 - Add new sub-tasks or TODOs discovered during development to `TASKS.md` under a “Discovered During Work” section.
 
+### Colors 
+
+Primary Colors: 
+- #cfb991 
+- #000000 
+
+Secondary Colors
+
+- #8e6f3e
+- #daaa00
+- #ddb945
+- #ebd99f
+
+- #555960
+- #6f727b
+- #9d9795
+- #c4bfc0
+
 
 ### 📚 Documentation & Explainability
 - **Update `README.md`** when new features are added, dependencies change, or setup steps are modified.
 - **Comment non-obvious code** and ensure everything is understandable to a mid-level developer.
 - When writing complex logic, **add an inline `# Reason:` comment** explaining the why, not just the what.
+
 
 
 ### 🧠 AI Behavior Rules
