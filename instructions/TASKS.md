@@ -14,13 +14,13 @@ Goal: Users can sign up / sign in with Supabase auth and land on the bare-bones 
 1.3 Configure .env with Supabase URL & anon key
 
 
-1.5 Implement email-password Sign Up form
+1.4 Implement email-password Sign Up form
 
 
-1.6 Implement email-password Sign In form
+1.5 Implement email-password Sign In form
 
 
-1.9 Create users table (id, email, created_at, display_name, avatar_url, school, major)
+1.6 Create users table (id, email, created_at, display_name, avatar_url, school, major)
 
 
 1.10 On first login, write user profile row

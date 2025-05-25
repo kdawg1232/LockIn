@@ -5,7 +5,7 @@ alwaysApply: false
 ---
 ### 🔄 Project Awareness & Context
 - **Always read `PLANNING.md`** at the start of a new conversation to understand the project's architecture, goals, style, and constraints.
-- **Check `TASK.md`** before starting a new task. If the task isn’t listed, add it with a brief description and today's date.
+- **Check `TASKS.md`** before starting a new task. If the task isn’t listed, add it with a brief description and today's date.
 - **Use consistent naming conventions, file structure, and architecture patterns** as described in `PLANNING.md`.
 
 
@@ -14,10 +14,9 @@ alwaysApply: false
 - **Organize code into clearly separated modules**, grouped by feature or responsibility.
 - **Use clear, consistent imports** (prefer relative imports within packages).
 - **Take into account if the file you are creating is frontend or backend, put the file in the respective folders
-
+- Don't Do QUICK FIXES! Create fixes that will help the project in the long run.
 
 ### 🧪 Testing & Reliability
-- **Always create Pytest unit tests for new features** (functions, classes, routes, etc).
 - **After updating any logic**, check whether existing unit tests need to be updated. If so, do it.
 - **Tests should live in a `/tests` folder** mirroring the main app structure.
  - Include at least:
@@ -27,30 +26,8 @@ alwaysApply: false
 
 
 ### ✅ Task Completion
-- **Mark completed tasks in `TASK.md`** immediately after finishing them.
-- Add new sub-tasks or TODOs discovered during development to `TASK.md` under a “Discovered During Work” section.
-
-
-### 📎 Style & Conventions
-- **Use Python** as the primary language.
-- **Follow PEP8**, use type hints, and format with `black`.
-- **Use `pydantic` for data validation**.
-- Use `FastAPI` for APIs and `SQLAlchemy` or `SQLModel` for ORM if applicable.
-- Write **docstrings for every function** using the Google style:
- ```python
- def example():
-     """
-    Brief summary.
-
-
-    Args:
-        param1 (type): Description.
-
-
-    Returns:
-        type: Description.
-    """
- ```
+- **Mark completed tasks in `TASKS.md`** immediately after finishing them.
+- Add new sub-tasks or TODOs discovered during development to `TASKS.md` under a “Discovered During Work” section.
 
 
 ### 📚 Documentation & Explainability
@@ -61,6 +38,5 @@ alwaysApply: false
 
 ### 🧠 AI Behavior Rules
 - **Never assume missing context. Ask questions if uncertain.**
-- **Never hallucinate libraries or functions** – only use known, verified Python packages.
 - **Always confirm file paths and module names** exist before referencing them in code or tests.
-- **Never delete or overwrite existing code** unless explicitly instructed to or if part of a task from `TASK.md`.
+- **Never delete or overwrite existing code** unless explicitly instructed to or if part of a task from `TASKS.md`.
