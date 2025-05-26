@@ -95,4 +95,4 @@ npm run test:watch
 - Performance optimized
 - Battery efficient
 
-For more details, see PLANNING.md 
+For more details, see PLANNING.md.S
