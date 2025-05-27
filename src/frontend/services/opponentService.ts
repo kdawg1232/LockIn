@@ -10,12 +10,13 @@ interface OpponentData {
   avatarUrl?: string;
 }
 
-const OPPONENT_STORAGE_KEY = '@opponent_of_the_day';
-const LAST_FETCH_KEY = '@last_opponent_fetch';
+// Generate user-specific cache keys
+const getOpponentStorageKey = (userId: string) => `@opponent_of_the_day_${userId}`;
+const getLastFetchKey = (userId: string) => `@last_opponent_fetch_${userId}`;
 
-const isNewDayRequired = async (): Promise<boolean> => {
+const isNewDayRequired = async (userId: string): Promise<boolean> => {
   try {
-    const lastFetch = await AsyncStorage.getItem(LAST_FETCH_KEY);
+    const lastFetch = await AsyncStorage.getItem(getLastFetchKey(userId));
     if (!lastFetch) return true;
 
     const lastFetchDate = new Date(lastFetch);
@@ -31,11 +32,11 @@ const isNewDayRequired = async (): Promise<boolean> => {
 };
 
 // Function to clear the opponent cache (for testing/debugging)
-export const clearOpponentCache = async (): Promise<void> => {
+export const clearOpponentCache = async (userId: string): Promise<void> => {
   try {
-    await AsyncStorage.removeItem(OPPONENT_STORAGE_KEY);
-    await AsyncStorage.removeItem(LAST_FETCH_KEY);
-    console.log('🎲 Opponent cache cleared');
+    await AsyncStorage.removeItem(getOpponentStorageKey(userId));
+    await AsyncStorage.removeItem(getLastFetchKey(userId));
+    console.log('🎲 Opponent cache cleared for user:', userId);
   } catch (error) {
     console.error('🎲 Error clearing opponent cache:', error);
   }
@@ -43,8 +44,8 @@ export const clearOpponentCache = async (): Promise<void> => {
 
 // Function to force fetch a new opponent (bypasses cache)
 export const getNewOpponent = async (currentUserId: string): Promise<OpponentData | null> => {
-  console.log('🎲 Forcing fresh opponent fetch...');
-  await clearOpponentCache();
+  console.log('🎲 Forcing fresh opponent fetch for user:', currentUserId);
+  await clearOpponentCache(currentUserId);
   return getOpponentOfTheDay(currentUserId);
 };
 
@@ -53,14 +54,14 @@ export const getOpponentOfTheDay = async (currentUserId: string): Promise<Oppone
     console.log('🎲 Getting opponent of the day for user:', currentUserId);
     
     // Check if we need to fetch a new opponent
-    const needsNewOpponent = await isNewDayRequired();
+    const needsNewOpponent = await isNewDayRequired(currentUserId);
     console.log('🎲 Need new opponent?', needsNewOpponent);
     
     if (!needsNewOpponent) {
       // Try to get cached opponent
-      const cachedOpponent = await AsyncStorage.getItem(OPPONENT_STORAGE_KEY);
+      const cachedOpponent = await AsyncStorage.getItem(getOpponentStorageKey(currentUserId));
       if (cachedOpponent) {
-        console.log('🎲 Using cached opponent:', JSON.parse(cachedOpponent));
+        console.log('🎲 Using cached opponent for user', currentUserId, ':', JSON.parse(cachedOpponent));
         return JSON.parse(cachedOpponent);
       }
     }
@@ -104,12 +105,12 @@ export const getOpponentOfTheDay = async (currentUserId: string): Promise<Oppone
       avatarUrl: opponent.avatar_url
     };
 
-    console.log('🎲 Final opponent data:', opponentData);
+    console.log('🎲 Final opponent data for user', currentUserId, ':', opponentData);
 
-    // Cache the opponent and update last fetch time
-    await AsyncStorage.setItem(OPPONENT_STORAGE_KEY, JSON.stringify(opponentData));
-    await AsyncStorage.setItem(LAST_FETCH_KEY, new Date().toISOString());
-    console.log('🎲 Cached opponent for next 24 hours');
+    // Cache the opponent and update last fetch time (user-specific)
+    await AsyncStorage.setItem(getOpponentStorageKey(currentUserId), JSON.stringify(opponentData));
+    await AsyncStorage.setItem(getLastFetchKey(currentUserId), new Date().toISOString());
+    console.log('🎲 Cached opponent for user', currentUserId, 'for next 24 hours');
 
     return opponentData;
   } catch (error) {
