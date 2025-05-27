@@ -5,211 +5,297 @@
  * These values should match the Tailwind configuration for consistency.
  */
 
-export const colors = {
-  // Primary brand colors
-  primary: {
-    50: '#f9f7f4',
-    100: '#f0ebe2',
-    200: '#e1d4c0',
-    300: '#cfb991', // Main brand color
-    400: '#c4a876',
-    500: '#b8975b',
-    600: '#a6844d',
-    700: '#8a6d41',
-    800: '#715a39',
-    900: '#5d4a31',
-  },
-  
-  // Neutral grays
-  neutral: {
-    50: '#fafafa',
-    100: '#f5f5f5',
-    200: '#e5e5e5',
-    300: '#d4d4d4',
-    400: '#a3a3a3',
-    500: '#737373',
-    600: '#525252',
-    700: '#404040',
-    800: '#262626',
-    900: '#171717',
-  },
-  
-  // Semantic colors
-  success: {
-    50: '#f0fdf4',
-    500: '#22c55e',
-    600: '#16a34a',
-  },
-  warning: {
-    50: '#fffbeb',
-    500: '#f59e0b',
-    600: '#d97706',
-  },
-  error: {
-    50: '#fef2f2',
-    500: '#ef4444',
-    600: '#dc2626',
-  },
-  
-  // App-specific colors
-  background: {
-    primary: '#cfb991',
-    secondary: '#ffffff',
-    card: '#ffffff',
-  },
-  text: {
-    primary: '#000000',
-    secondary: '#555960',
-    muted: '#9d9795',
-    inverse: '#ffffff',
-  },
-  border: {
-    primary: '#c4bfc0',
-    secondary: '#e5e5e5',
-  },
-} as const;
+import { StyleSheet, Dimensions } from 'react-native';
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+// Color palette from your project requirements
+export const colors = {
+  // Primary Colors
+  primary: '#cfb991',
+  black: '#000000',
+  white: '#FFFFFF',
+  
+  // Secondary Colors
+  secondary: '#8e6f3e',
+  accent: '#daaa00',
+  gold: '#ddb945',
+  cream: '#ebd99f',
+  
+  // Neutral Colors
+  darkGray: '#555960',
+  mediumGray: '#6f727b',
+  lightGray: '#9d9795',
+  paleGray: '#c4bfc0',
+  
+  // Semantic Colors
+  success: '#4CAF50',
+  error: '#F44336',
+  warning: '#FF9800',
+  info: '#2196F3',
+};
+
+// Typography system
+export const typography = {
+  // Font sizes
+  fontSize: {
+    xs: 12,
+    sm: 14,
+    base: 16,
+    lg: 18,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 30,
+    '4xl': 36,
+    '5xl': 48,
+  },
+  
+  // Font weights
+  fontWeight: {
+    normal: '400' as const,
+    medium: '500' as const,
+    semibold: '600' as const,
+    bold: '700' as const,
+    extrabold: '800' as const,
+  },
+  
+  // Line heights
+  lineHeight: {
+    tight: 1.25,
+    normal: 1.5,
+    relaxed: 1.75,
+  },
+};
+
+// Spacing system (based on 4px grid)
 export const spacing = {
   xs: 4,
   sm: 8,
   md: 16,
   lg: 24,
   xl: 32,
-  '2xl': 40,
-  '3xl': 48,
-  '4xl': 64,
-  '5xl': 80,
-} as const;
+  '2xl': 48,
+  '3xl': 64,
+  '4xl': 96,
+};
 
+// Border radius system
 export const borderRadius = {
+  none: 0,
   sm: 4,
   md: 8,
-  lg: 12,
-  xl: 16,
-  '2xl': 20,
-  '3xl': 24,
+  lg: 16,
+  xl: 24,
   full: 9999,
-} as const;
+};
 
-export const fontSize = {
-  xs: 12,
-  sm: 14,
-  base: 16,
-  lg: 18,
-  xl: 20,
-  '2xl': 24,
-  '3xl': 30,
-  '4xl': 36,
-  '5xl': 48,
-} as const;
-
-export const fontWeight = {
-  normal: '400',
-  medium: '500',
-  semibold: '600',
-  bold: '700',
-} as const;
-
+// Shadow system
 export const shadows = {
   sm: {
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowOpacity: 0.18,
+    shadowRadius: 1.0,
     elevation: 1,
   },
   md: {
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   lg: {
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  xl: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
+    shadowOpacity: 0.30,
+    shadowRadius: 4.65,
     elevation: 8,
   },
-} as const;
+};
 
-// Common component styles
-export const commonStyles = {
+// Common styles that can be reused
+export const commonStyles = StyleSheet.create({
+  // Layout
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    padding: spacing.md,
+    backgroundColor: colors.white,
   },
+  
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  
+  spaceBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  
+  // Cards
   card: {
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius['3xl'],
-    padding: spacing.xl,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     ...shadows.md,
   },
+  
+  primaryCard: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    ...shadows.md,
+  },
+  
+  // Buttons
   button: {
     height: 50,
     borderRadius: borderRadius.full,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
   },
-  input: {
+  
+  primaryButton: {
+    height: 50,
+    backgroundColor: colors.black,
+    borderRadius: borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  
+  secondaryButton: {
+    height: 50,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  
+  // Text inputs
+  textInput: {
     height: 50,
     borderWidth: 1,
-    borderColor: colors.border.primary,
+    borderColor: colors.paleGray,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    fontSize: fontSize.base,
-    color: colors.text.primary,
+    fontSize: typography.fontSize.base,
+    color: colors.black,
+    backgroundColor: colors.white,
   },
-} as const;
-
-// Typography styles
-export const typography = {
+  
+  // Text styles
   heading1: {
-    fontSize: fontSize['4xl'],
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
+    fontSize: typography.fontSize['4xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.black,
+    lineHeight: typography.fontSize['4xl'] * typography.lineHeight.tight,
   },
+  
   heading2: {
-    fontSize: fontSize['3xl'],
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
+    fontSize: typography.fontSize['3xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.black,
+    lineHeight: typography.fontSize['3xl'] * typography.lineHeight.tight,
   },
+  
   heading3: {
-    fontSize: fontSize['2xl'],
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.black,
+    lineHeight: typography.fontSize['2xl'] * typography.lineHeight.tight,
   },
-  heading4: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-  },
+  
   bodyLarge: {
-    fontSize: fontSize.lg,
-    color: colors.text.primary,
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.normal,
+    color: colors.black,
+    lineHeight: typography.fontSize.lg * typography.lineHeight.normal,
   },
+  
   body: {
-    fontSize: fontSize.base,
-    color: colors.text.primary,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.normal,
+    color: colors.black,
+    lineHeight: typography.fontSize.base * typography.lineHeight.normal,
   },
+  
   bodySmall: {
-    fontSize: fontSize.sm,
-    color: colors.text.secondary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.normal,
+    color: colors.darkGray,
+    lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
   },
+  
   caption: {
-    fontSize: fontSize.xs,
-    color: colors.text.muted,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.normal,
+    color: colors.mediumGray,
+    lineHeight: typography.fontSize.xs * typography.lineHeight.normal,
   },
-} as const; 
+  
+  // Avatar styles
+  avatar: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+  },
+  
+  avatarPlaceholder: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: colors.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  avatarText: {
+    fontSize: typography.fontSize['4xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.white,
+  },
+});
+
+// Utility functions for dynamic styling
+export const createSpacing = (multiplier: number) => spacing.md * multiplier;
+
+export const createButtonStyle = (backgroundColor: string, textColor: string = colors.white) => ({
+  button: {
+    ...commonStyles.button,
+    backgroundColor,
+  },
+  text: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: textColor,
+  },
+});
+
+export const createCardStyle = (backgroundColor: string = colors.white) => ({
+  ...commonStyles.card,
+  backgroundColor,
+});
+
+// Screen dimensions for responsive design
+export const screen = {
+  width: screenWidth,
+  height: screenHeight,
+  isSmall: screenWidth < 375,
+  isMedium: screenWidth >= 375 && screenWidth < 414,
+  isLarge: screenWidth >= 414,
+}; 

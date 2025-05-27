@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { authService } from '../../services/auth.service';
+import { SessionContext } from '../../navigation/RootNavigator';
 
 type RootStackParamList = {
   SignIn: undefined;
@@ -13,6 +14,7 @@ type SignUpScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 
 
 export const SignUpScreen = () => {
   const navigation = useNavigation<SignUpScreenNavigationProp>();
+  const { refreshSession } = useContext(SessionContext);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -52,6 +54,7 @@ export const SignUpScreen = () => {
       });
 
       if (result.success) {
+        console.log('✅ Account created successfully');
         Alert.alert('Success', 'Account created successfully! Please sign in.', [
           { text: 'OK', onPress: () => navigation.navigate('SignIn') }
         ]);

@@ -9,25 +9,30 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.1.2",
     "@react-navigation/bottom-tabs": "^7.3.13",
     "@react-navigation/native": "^7.1.9",
     "@react-navigation/native-stack": "^7.3.13",
     "@supabase/auth-js": "^2.70.0",
+    "events": "^3.3.0",
     "expo": "~53.0.9",
+    "expo-crypto": "^14.1.4",
     "expo-secure-store": "~14.2.3",
     "expo-status-bar": "~2.2.3",
-    "nativewind": "^4.1.23",
     "react": "19.0.0",
     "react-native": "0.79.2",
+    "react-native-get-random-values": "^1.11.0",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
     "react-native-url-polyfill": "^2.0.0",
+    "readable-stream": "^4.7.0",
     "tailwindcss": "^3.4.17",
     "twrnc": "^4.7.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
+    "postcss-load-config": "^6.0.1",
     "react-native-dotenv": "^3.4.11",
     "supabase": "^2.23.4",
     "typescript": "~5.8.3"

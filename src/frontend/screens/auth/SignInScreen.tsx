@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { authService } from '../../services/auth.service';
+import { SessionContext } from '../../navigation/RootNavigator';
 
 type RootStackParamList = {
   SignIn: undefined;
@@ -13,6 +14,7 @@ type SignInScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 
 
 export const SignInScreen = () => {
   const navigation = useNavigation<SignInScreenNavigationProp>();
+  const { refreshSession } = useContext(SessionContext);
   const [formData, setFormData] = useState({
     emailOrUsername: '',
     password: '',
@@ -33,9 +35,11 @@ export const SignInScreen = () => {
       );
 
       if (result.success) {
-        // Navigate to main app
-        console.log('Successfully signed in:', result.user);
-        // TODO: Navigate to main app screen
+        console.log('✅ Successfully signed in:', result.user);
+        
+        // Trigger session refresh to update navigation
+        console.log('🔄 Triggering session refresh...');
+        await refreshSession();
       } else {
         Alert.alert('Error', 'Invalid credentials. Please try again.');
       }

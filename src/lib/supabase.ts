@@ -1,127 +1,318 @@
-import 'react-native-url-polyfill/auto';
-import { AuthClient } from '@supabase/auth-js';
-import * as SecureStore from 'expo-secure-store';
-import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Validate environment variables
-if (!EXPO_PUBLIC_SUPABASE_URL) throw new Error('Missing SUPABASE_URL');
-if (!EXPO_PUBLIC_SUPABASE_ANON_KEY) throw new Error('Missing SUPABASE_ANON_KEY');
+// Supabase configuration
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Secure storage adapter for auth persistence
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string): Promise<string | null> => {
-    return SecureStore.getItemAsync(key);
-  },
-  setItem: (key: string, value: string): Promise<void> => {
-    return SecureStore.setItemAsync(key, value);
-  },
-  removeItem: (key: string): Promise<void> => {
-    return SecureStore.deleteItemAsync(key);
-  },
-};
+// Storage keys
+const SESSION_KEY = 'supabase.auth.token';
+const USER_KEY = 'supabase.auth.user';
 
-// Create auth client
-export const supabaseAuth = new AuthClient({
-  url: `${EXPO_PUBLIC_SUPABASE_URL}/auth/v1`,
-  headers: {
-    apikey: EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    authorization: `Bearer ${EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
-  },
-  autoRefreshToken: false,
-  persistSession: false,
-  detectSessionInUrl: false,
-});
+interface User {
+  id: string;
+  email: string;
+  created_at: string;
+  email_confirmed_at?: string;
+}
 
-// REST API helper for database operations
-class SupabaseRest {
+interface Session {
+  access_token: string;
+  refresh_token: string;
+  expires_at: number;
+  user: User;
+}
+
+interface AuthResponse {
+  user: User | null;
+  session: Session | null;
+  error: string | null;
+}
+
+interface DatabaseResponse<T = any> {
+  data: T | null;
+  error: string | null;
+}
+
+class SupabaseRestClient {
   private baseUrl: string;
-  private headers: Record<string, string>;
+  private anonKey: string;
 
   constructor() {
-    this.baseUrl = `${EXPO_PUBLIC_SUPABASE_URL}/rest/v1`;
-    this.headers = {
-      'apikey': EXPO_PUBLIC_SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+    this.baseUrl = SUPABASE_URL;
+    this.anonKey = SUPABASE_ANON_KEY;
+  }
+
+  // Get current session from storage
+  async getSession(): Promise<{ data: { session: Session | null } }> {
+    try {
+      const sessionData = await AsyncStorage.getItem(SESSION_KEY);
+      const session = sessionData ? JSON.parse(sessionData) : null;
+      
+      // Check if session is expired
+      if (session && session.expires_at && Date.now() / 1000 > session.expires_at) {
+        await this.clearSession();
+        return { data: { session: null } };
+      }
+      
+      return { data: { session } };
+    } catch {
+      return { data: { session: null } };
+    }
+  }
+
+  // Get current user
+  async getUser(): Promise<{ data: { user: User | null } }> {
+    const { data: { session } } = await this.getSession();
+    return { data: { user: session?.user || null } };
+  }
+
+  // Clear session from storage
+  async clearSession(): Promise<void> {
+    await AsyncStorage.multiRemove([SESSION_KEY, USER_KEY]);
+  }
+
+  // Sign up with email and password
+  async signUp(email: string, password: string): Promise<AuthResponse> {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/v1/signup`, {
+        method: 'POST',
+        headers: {
+          'apikey': this.anonKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { user: null, session: null, error: data.error_description || data.msg || 'Sign up failed' };
+      }
+
+      // Store session if provided
+      if (data.access_token) {
+        const session: Session = {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at: data.expires_at,
+          user: data.user,
+        };
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        return { user: data.user, session, error: null };
+      }
+
+      return { user: data.user, session: null, error: null };
+    } catch (error) {
+      return { user: null, session: null, error: 'Network error during sign up' };
+    }
+  }
+
+  // Sign in with email and password
+  async signInWithPassword(email: string, password: string): Promise<AuthResponse> {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'apikey': this.anonKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { user: null, session: null, error: data.error_description || data.msg || 'Sign in failed' };
+      }
+
+      const session: Session = {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: data.expires_at,
+        user: data.user,
+      };
+
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      return { user: data.user, session, error: null };
+    } catch (error) {
+      return { user: null, session: null, error: 'Network error during sign in' };
+    }
+  }
+
+  // Sign out
+  async signOut(): Promise<{ error: string | null }> {
+    try {
+      const { data: { session } } = await this.getSession();
+      
+      if (session) {
+        await fetch(`${this.baseUrl}/auth/v1/logout`, {
+          method: 'POST',
+          headers: {
+            'apikey': this.anonKey,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+
+      await this.clearSession();
+      return { error: null };
+    } catch (error) {
+      await this.clearSession(); // Clear local session even if API call fails
+      return { error: null };
+    }
+  }
+
+  // Get authorization headers
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const { data: { session } } = await this.getSession();
+    
+    return {
+      'apikey': this.anonKey,
+      'Authorization': `Bearer ${session?.access_token || this.anonKey}`,
       'Content-Type': 'application/json',
       'Prefer': 'return=representation',
     };
   }
 
-  private async updateAuthHeader() {
-    const session = await supabaseAuth.getSession();
-    if (session.data.session?.access_token) {
-      this.headers['Authorization'] = `Bearer ${session.data.session.access_token}`;
-    }
-  }
-
+  // Database operations
   from(table: string) {
     return {
-      select: async (columns = '*') => {
-        await this.updateAuthHeader();
-        const response = await fetch(`${this.baseUrl}/${table}?select=${columns}`, {
-          headers: this.headers,
-        });
-        const data = await response.json();
-        return { 
-          data, 
-          error: response.ok ? null : await response.text(),
-          eq: (column: string, value: any) => ({
-            single: async () => {
-              await this.updateAuthHeader();
-              const response = await fetch(`${this.baseUrl}/${table}?select=${columns}&${column}=eq.${value}`, {
-                headers: this.headers,
-              });
-              const data = await response.json();
-              return { data: Array.isArray(data) ? data[0] : data, error: response.ok ? null : await response.text() };
-            },
-          }),
-          ilike: async (column: string, pattern: string) => {
-            await this.updateAuthHeader();
-            const response = await fetch(`${this.baseUrl}/${table}?select=${columns}&${column}=ilike.${pattern}`, {
-              headers: this.headers,
-            });
-            return { data: await response.json(), error: response.ok ? null : await response.text() };
-          },
-        };
-      },
-      insert: async (data: any) => {
-        await this.updateAuthHeader();
-        const response = await fetch(`${this.baseUrl}/${table}`, {
-          method: 'POST',
-          headers: this.headers,
-          body: JSON.stringify(data),
-        });
-        return { data: await response.json(), error: response.ok ? null : await response.text() };
-      },
-      update: (data: any) => ({
+      // Select data
+      select: (columns = '*') => ({
         eq: async (column: string, value: any) => {
-          await this.updateAuthHeader();
-          const response = await fetch(`${this.baseUrl}/${table}?${column}=eq.${value}`, {
-            method: 'PATCH',
-            headers: this.headers,
-            body: JSON.stringify(data),
-          });
-          return { data: await response.json(), error: response.ok ? null : await response.text() };
+          try {
+            const headers = await this.getAuthHeaders();
+            const response = await fetch(
+              `${this.baseUrl}/rest/v1/${table}?select=${columns}&${column}=eq.${value}`,
+              { headers }
+            );
+            const data = await response.json();
+            
+            if (!response.ok) {
+              return { data: null, error: data.message || 'Query failed' };
+            }
+            
+            return { data, error: null };
+          } catch (error) {
+            return { data: null, error: 'Network error' };
+          }
+        },
+
+        neq: async (column: string, value: any) => {
+          try {
+            const headers = await this.getAuthHeaders();
+            const response = await fetch(
+              `${this.baseUrl}/rest/v1/${table}?select=${columns}&${column}=neq.${value}`,
+              { headers }
+            );
+            const data = await response.json();
+            
+            if (!response.ok) {
+              return { data: null, error: data.message || 'Query failed' };
+            }
+            
+            return { data, error: null };
+          } catch (error) {
+            return { data: null, error: 'Network error' };
+          }
+        },
+
+        limit: (count: number) => ({
+          single: async () => {
+            try {
+              const headers = await this.getAuthHeaders();
+              const response = await fetch(
+                `${this.baseUrl}/rest/v1/${table}?select=${columns}&limit=${count}`,
+                { headers }
+              );
+              const data = await response.json();
+              
+              if (!response.ok) {
+                return { data: null, error: data.message || 'Query failed' };
+              }
+              
+              return { data: Array.isArray(data) ? data[0] : data, error: null };
+            } catch (error) {
+              return { data: null, error: 'Network error' };
+            }
+          },
+        }),
+
+        single: async () => {
+          try {
+            const headers = await this.getAuthHeaders();
+            const response = await fetch(
+              `${this.baseUrl}/rest/v1/${table}?select=${columns}&limit=1`,
+              { headers }
+            );
+            const data = await response.json();
+            
+            if (!response.ok) {
+              return { data: null, error: data.message || 'Query failed' };
+            }
+            
+            return { data: Array.isArray(data) ? data[0] : data, error: null };
+          } catch (error) {
+            return { data: null, error: 'Network error' };
+          }
         },
       }),
-      eq: (column: string, value: any) => ({
-        single: async () => {
-          await this.updateAuthHeader();
-          const response = await fetch(`${this.baseUrl}/${table}?${column}=eq.${value}`, {
-            headers: this.headers,
+
+      // Insert data
+      insert: async (insertData: any) => {
+        try {
+          const headers = await this.getAuthHeaders();
+          const response = await fetch(`${this.baseUrl}/rest/v1/${table}`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(insertData),
           });
+          
           const data = await response.json();
-          return { data: Array.isArray(data) ? data[0] : data, error: response.ok ? null : await response.text() };
+          
+          if (!response.ok) {
+            return { data: null, error: data.message || 'Insert failed' };
+          }
+          
+          return { data, error: null };
+        } catch (error) {
+          return { data: null, error: 'Network error' };
+        }
+      },
+
+      // Update data
+      update: (updateData: any) => ({
+        eq: async (column: string, value: any) => {
+          try {
+            const headers = await this.getAuthHeaders();
+            const response = await fetch(
+              `${this.baseUrl}/rest/v1/${table}?${column}=eq.${value}`,
+              {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify(updateData),
+              }
+            );
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+              return { data: null, error: data.message || 'Update failed' };
+            }
+            
+            return { data, error: null };
+          } catch (error) {
+            return { data: null, error: 'Network error' };
+          }
         },
       }),
     };
   }
 }
 
-export const supabaseRest = new SupabaseRest();
+// Create and export the client
+const supabase = new SupabaseRestClient();
 
-// Create a unified interface that matches the original supabase client
-export const supabase = {
-  auth: supabaseAuth,
-  from: (table: string) => supabaseRest.from(table),
-}; 
+export { supabase };
+export default supabase; 

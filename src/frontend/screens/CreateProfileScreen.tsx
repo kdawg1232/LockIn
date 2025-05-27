@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import supabase from '../../lib/supabase';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 
 export const CreateProfileScreen = () => {
+  const navigation = useNavigation();
   const [formData, setFormData] = useState({
     university: '',
     major: '',
-    year: '',
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -18,7 +19,7 @@ export const CreateProfileScreen = () => {
 
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.getUser();
       
       if (!user) throw new Error('No user found');
 
@@ -33,8 +34,13 @@ export const CreateProfileScreen = () => {
 
       if (error) throw error;
 
-      // TODO: Navigate to main app screen
-      Alert.alert('Success', 'Profile completed successfully!');
+      // Reset the navigation stack and navigate to OpponentOfTheDay
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'OpponentOfTheDay' }],
+        })
+      );
     } catch (error) {
       console.error('Profile completion error:', error);
       Alert.alert('Error', 'Failed to complete profile. Please try again.');

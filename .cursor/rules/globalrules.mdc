@@ -50,6 +50,7 @@ Secondary Colors
 - **Comment non-obvious code** and ensure everything is understandable to a mid-level developer.
 - When writing complex logic, **add an inline `# Reason:` comment** explaining the why, not just the what.
 
+### OTHER PROJECT RULES: 
 
 
 ### 🧠 AI Behavior Rules
