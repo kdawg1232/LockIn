@@ -23,10 +23,10 @@ Goal: Users can sign up / sign in with Supabase auth and land on the bare-bones 
 ✅ 1.6 Create users table (id, email, created_at, display_name, avatar_url, school, major)
 
 
-1.7 On first login, write user profile row
+✅ 1.7 On first login, write user profile row
 
 
-1.8 Set up global tailwind styling baseline
+✅ 1.8 Set up global tailwind styling baseline
 
 
 1.9 Placehold "Opponent of the Day" card component (static data for now)

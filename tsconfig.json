@@ -1,8 +1,18 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/styles": ["./src/frontend/styles"]
+    }
   },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "src/types/global.d.ts"
+  ],
   "exclude": [
     "__tests_disabled__/**/*"
   ]

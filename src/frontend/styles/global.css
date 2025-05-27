@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global base styles */
+@layer base {
+  /* Reset and base styles for React Native */
+  * {
+    box-sizing: border-box;
+  }
+  
+  /* Default text styles */
+  .text-base {
+    font-size: 16px;
+    line-height: 24px;
+  }
+}
+
+@layer components {
+  /* Card component styles */
+  .card {
+    @apply bg-background-card rounded-3xl p-8 shadow-card;
+  }
+  
+  .card-lg {
+    @apply bg-background-card rounded-3xl p-10 shadow-card-lg;
+  }
+  
+  /* Button component styles */
+  .btn {
+    @apply h-12 px-6 rounded-full justify-center items-center;
+  }
+  
+  .btn-primary {
+    @apply btn bg-black;
+  }
+  
+  .btn-primary-text {
+    @apply text-text-inverse text-lg font-semibold;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-transparent border border-border-primary;
+  }
+  
+  .btn-secondary-text {
+    @apply text-text-primary text-lg font-semibold;
+  }
+  
+  .btn-disabled {
+    @apply opacity-50;
+  }
+  
+  /* Input component styles */
+  .input {
+    @apply w-full h-12 border border-border-primary rounded-lg px-4 text-base text-text-primary;
+  }
+  
+  .input-error {
+    @apply border-error-500;
+  }
+  
+  /* Text styles */
+  .heading-1 {
+    @apply text-4xl font-bold text-text-primary;
+  }
+  
+  .heading-2 {
+    @apply text-3xl font-bold text-text-primary;
+  }
+  
+  .heading-3 {
+    @apply text-2xl font-bold text-text-primary;
+  }
+  
+  .heading-4 {
+    @apply text-xl font-semibold text-text-primary;
+  }
+  
+  .body-large {
+    @apply text-lg text-text-primary;
+  }
+  
+  .body {
+    @apply text-base text-text-primary;
+  }
+  
+  .body-small {
+    @apply text-sm text-text-secondary;
+  }
+  
+  .caption {
+    @apply text-xs text-text-muted;
+  }
+  
+  /* Layout styles */
+  .container {
+    @apply flex-1 bg-background-primary justify-center items-center p-5;
+  }
+  
+  .screen-padding {
+    @apply px-5 py-4;
+  }
+  
+  .safe-area {
+    @apply flex-1;
+  }
+}
+
+@layer utilities {
+  /* Custom utility classes */
+  .shadow-soft {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .shadow-medium {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .shadow-strong {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+} 

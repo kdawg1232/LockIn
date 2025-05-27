@@ -47,7 +47,6 @@ export const CreateProfileScreen = () => {
     <View style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>Create Profile</Text>
-        <Text style={styles.subtitle}>Set up your productivity profile!</Text>
 
         <View style={styles.imageUploadContainer}>
           <View style={styles.placeholderImage}>
@@ -74,24 +73,16 @@ export const CreateProfileScreen = () => {
           onChangeText={(text) => setFormData({ ...formData, major: text })}
         />
 
-        <Text style={styles.label}>Year</Text>
-        <TouchableOpacity style={styles.yearSelector}>
-          <Text style={styles.yearSelectorText}>Select your year</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity 
           style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handleCompleteProfile}
           disabled={isLoading}
         >
           <Text style={styles.buttonText}>
-            {isLoading ? 'Completing Profile...' : 'Complete Profile & Start Competing! 🚀'}
+            {isLoading ? 'Completing Profile...' : 'Done'}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity>
-          <Text style={styles.skipText}>Skip for now</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
