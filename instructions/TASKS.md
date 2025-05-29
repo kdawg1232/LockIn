@@ -44,39 +44,6 @@ Goal: Users can sign up / sign in with Supabase auth and land on the bare-bones 
 Definition of Done: A new user can register, log in, and see the scaffolding of the main screen; navigation works, no runtime errors.
 
 
-Sprint 2 – Focus Timer & Coin Engine
-Goal: Users can start/stop focus sessions; coins credited in DB;
-
- 2.1 Create focus_sessions table (id, user_id, start, end, duration_min)
-
- 2.2 Add coin_transactions table (id, user_id, delta, reason, created_at)
-
- 2.3 Implement 30-min timer component with start/stop states
-
- 2.4 Persist session start/end to Supabase in real time
-
- 2.5 Award +2 coins when session ≥ 30 min completed
-
- 2.6 Award +4 coins if ≥ 60 min (placeholder for bigger reward)
-
- 2.7 Debit −6 coins API placeholder (will be used by social-usage tracker in Sprint 4)
-
- 2.8 Create helper getNetCoinsToday(user_id) RPC or client calc
-
- 2.9 Refresh Daily Stats component on focus/unfocus
-
- 2.10 Add Expo toast/snackbar for "+2 coins earned!"
-
- 2.11 Guard against overlapping timers
-
- 2.12 Basic unit tests for timer hooks
-
- 2.13 Push local notifications on session completion (will be expanded later)
-
- 2.14 Update Home skeleton to show earned coins circle after timer ends
-
- 2.15 QA on physical devices
-
 ## Discovered During Work
 
 ✅ 1.13 Create StatsScreen with Accept button flow - Add "Accept" button to OpponentOfTheDay screen that navigates to StatsScreen showing user vs opponent stats (Coins Gained, Coins Lost, Net Coins) with "Lock In" button and daily countdown timer (2024-12-19)
@@ -96,3 +63,16 @@ Goal: Users can start/stop focus sessions; coins credited in DB;
 ✅ 1.20 Fix RLS policies for opponent simulation - Fixed "new row violates row-level security policy" error by updating coin_transactions RLS policy to allow authenticated users to create transactions for any user (needed for opponent simulation), created FIX_RLS_POLICIES.sql script (2024-12-19)
 
 ✅ 1.21 Remove opponent simulation for real user testing - Removed opponent simulator service and debug buttons, updated test guide to focus on manual testing with real user accounts, cleaner codebase for production (2024-12-19)
+
+Next to do: 
+
+1.22 Do the Profile Screen where it has total coins, Calendar where the month is shown where each day is marked by red or green. Red means that you lost against opponent, green means you won against opponent. For now, since we are doing 20 minute intervals, we will only keep track of the previous 5 interval sessions for now. (MIGHT HAVE TO ALTER DATABASE FOR COIN TRANSACTIONS TO HAVE ANOTHER COLUMN FOR TOTAL COINS)
+
+1.23 Add in functionality: If focus timer is on, social media apps: instagram, twitter, reddit, snapchat, and tiktok will not work until focus timer is done. 
+
+1.24 On the daily stats screen, if user clicks on their card: goes to new screen: UserStatsScreen where there is a graph showing how much time has been spent on social media apps, each app individually. Every 15 minutes on any app will result in -1 coin. Will have to get data from iphone activity tracker. (MIGHT NEED TO CREATE DATABASE FOR THIS (ActivityTracker Database))
+
+1.25 If user clicks on the opponents card, it should go to new screen: OpponentStatsScreen where there is a graph showing how much time has been spent on social media apps, each app individually. Every 15 minutes on any app will result in -1 coin. Will have to get data from iphone activity tracker. Basically the same thing as 1.24. 
+
+1.26 Make it more visually appealing. Get UI inspiration from pinterest or whatever. Add in cool features. END OF MVP. 
+
