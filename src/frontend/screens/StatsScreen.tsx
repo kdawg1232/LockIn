@@ -4,22 +4,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { colors, commonStyles, spacing, typography, shadows } from '../styles/theme';
 import { getTodaysCoinTransactions } from '../services/timerService';
+import globalTimerService, { OpponentSwitchCallback } from '../services/globalTimerService';
 import supabase from '../../lib/supabase';
 
-// Interface for stats data structure
+// Interface for daily stats data
 interface StatsData {
   coinsGained: number;
   coinsLost: number;
   netCoins: number;
 }
 
-// Interface for user data
+// Interface for user data with stats
 interface UserData {
   name: string;
   stats: StatsData;
 }
 
-// Interface for route parameters
+// Route params interface
 interface StatsScreenParams {
   opponentName: string;
   opponentId: string;
@@ -28,117 +29,152 @@ interface StatsScreenParams {
 export const StatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const params = route.params as StatsScreenParams;
   
-  // Get opponent data from navigation parameters
-  const { opponentName, opponentId } = route.params as StatsScreenParams;
+  // Initialize opponent from route params or global timer service
+  const [opponentId, setOpponentId] = useState<string>(params?.opponentId || '');
+  const [opponentName, setOpponentName] = useState<string>(params?.opponentName || 'Unknown User');
   
-  // State for countdown timer - calculates time until next day at 7:00 AM
-  const [timeRemaining, setTimeRemaining] = useState<string>('');
-  
-  // State for real coin data
-  const [userStats, setUserStats] = useState<StatsData>({
-    coinsGained: 0,
-    coinsLost: 0,
-    netCoins: 0
-  });
-  
-  const [opponentStats, setOpponentStats] = useState<StatsData>({
-    coinsGained: 0,
-    coinsLost: 0,
-    netCoins: 0
-  });
-  
+  // State for user stats and UI
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [timeRemaining, setTimeRemaining] = useState<string>('00:20:00');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-
-  // Real user and opponent data using actual stats
+  
+  // Stats state
+  const [userStats, setUserStats] = useState<StatsData>({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
+  const [opponentStats, setOpponentStats] = useState<StatsData>({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
+  
+  // User data for rendering
   const userData: UserData = {
     name: 'You',
     stats: userStats
   };
-
+  
   const opponentData: UserData = {
-    name: opponentName, // Use actual opponent name from navigation params
+    name: opponentName,
     stats: opponentStats
   };
 
-  // Calculate time remaining until next opponent (7:00 AM next day)
-  const calculateTimeRemaining = () => {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(7, 0, 0, 0); // Set to 7:00 AM tomorrow
-    
-    const timeDiff = tomorrow.getTime() - now.getTime();
-    
-    // Convert milliseconds to hours, minutes, seconds
-    const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
+  // Initialize current user and opponent
+  useEffect(() => {
+    const initializeUser = async () => {
+      try {
+        const { data: { user } } = await supabase.getUser();
+        if (user) {
+          setCurrentUserId(user.id);
+          
+          // If no opponent ID from params, check global timer service
+          if (!opponentId) {
+            const globalOpponentId = globalTimerService.getCurrentOpponentId();
+            if (globalOpponentId) {
+              setOpponentId(globalOpponentId);
+              // Set opponent name (for now, just use "Opponent" since it's the same user)
+              setOpponentName('Opponent');
+            } else {
+              // Set current user as opponent if no opponent set
+              globalTimerService.setCurrentOpponentId(user.id);
+              setOpponentId(user.id);
+              setOpponentName('Opponent');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error getting current user:', error);
+      }
+    };
 
-  // Fetch user's coin data from database
+    initializeUser();
+  }, []);
+
+  // Fetch user stats with daily reset filtering
   const fetchUserStats = async (userId: string) => {
     try {
-      const result = await getTodaysCoinTransactions(userId);
-      if (result.error) {
-        console.error('Error fetching user stats:', result.error);
-        return;
-      }
+      console.log('📈 Fetching user stats for:', userId);
       
-      setUserStats({
-        coinsGained: result.coinsGained,
-        coinsLost: result.coinsLost,
-        netCoins: result.netCoins
-      });
+      const result = await getTodaysCoinTransactions(userId);
+      
+      if (!result.error) {
+        // Filter stats to only include transactions after last reset
+        const lastResetTime = globalTimerService.getLastStatsResetTime();
+        let filteredStats = {
+          coinsGained: result.coinsGained,
+          coinsLost: result.coinsLost,
+          netCoins: result.netCoins
+        };
+        
+        if (lastResetTime) {
+          console.log('📈 Filtering stats after reset time:', new Date(lastResetTime).toISOString());
+          // Only count coins gained after the last reset
+          // For now, just reset coins gained to 0 since we're only tracking gains
+          // TODO: Implement proper filtering when we have transaction timestamps
+          filteredStats = { coinsGained: 0, coinsLost: 0, netCoins: 0 };
+        }
+        
+        setUserStats(filteredStats);
+        console.log('📈 User stats updated:', filteredStats);
+      } else {
+        console.log('📈 No user stats found or error:', result.error);
+        setUserStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
+      }
     } catch (error) {
-      console.error('Error in fetchUserStats:', error);
+      console.error('Error fetching user stats:', error);
+      setUserStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
     }
   };
 
-  // Fetch opponent's coin data from database
+  // Fetch opponent stats with daily reset filtering
   const fetchOpponentStats = async (opponentUserId: string) => {
     try {
-      const result = await getTodaysCoinTransactions(opponentUserId);
-      if (result.error) {
-        console.error('Error fetching opponent stats:', result.error);
-        return;
-      }
+      console.log('📈 Fetching opponent stats for:', opponentUserId);
       
-      setOpponentStats({
-        coinsGained: result.coinsGained,
-        coinsLost: result.coinsLost,
-        netCoins: result.netCoins
-      });
+      const result = await getTodaysCoinTransactions(opponentUserId);
+      
+      if (!result.error) {
+        // Filter stats to only include transactions after last reset
+        const lastResetTime = globalTimerService.getLastStatsResetTime();
+        let filteredStats = {
+          coinsGained: result.coinsGained,
+          coinsLost: result.coinsLost,
+          netCoins: result.netCoins
+        };
+        
+        if (lastResetTime) {
+          console.log('📈 Filtering opponent stats after reset time:', new Date(lastResetTime).toISOString());
+          // Only count coins gained after the last reset
+          // For now, just reset coins gained to 0 since we're only tracking gains
+          // TODO: Implement proper filtering when we have transaction timestamps
+          filteredStats = { coinsGained: 0, coinsLost: 0, netCoins: 0 };
+        }
+        
+        setOpponentStats(filteredStats);
+        console.log('📈 Opponent stats updated:', filteredStats);
+      } else {
+        console.log('📈 No opponent stats found or error:', result.error);
+        setOpponentStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
+      }
     } catch (error) {
-      console.error('Error in fetchOpponentStats:', error);
+      console.error('Error fetching opponent stats:', error);
+      setOpponentStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
     }
   };
 
-  // Fetch all stats data
+  // Fetch all stats
   const fetchAllStats = async () => {
+    if (!currentUserId || !opponentId) {
+      console.log('📈 Cannot fetch stats - missing user IDs:', { currentUserId, opponentId });
+      return;
+    }
+    
+    console.log('📈 Fetching all stats for user and opponent');
+    setIsLoading(true);
+    
     try {
-      setIsLoading(true);
+      await Promise.all([
+        fetchUserStats(currentUserId),
+        fetchOpponentStats(opponentId)
+      ]);
       
-      // Get current user
-      const { data: { user } } = await supabase.getUser();
-      if (!user) {
-        console.error('No user found');
-        return;
-      }
-      
-      setCurrentUserId(user.id);
-      
-      // Fetch user's stats
-      await fetchUserStats(user.id);
-      
-      // Fetch opponent's stats
-      await fetchOpponentStats(opponentId);
-      
-      // Update last updated timestamp
       setLastUpdated(new Date());
       
     } catch (error) {
@@ -148,10 +184,39 @@ export const StatsScreen: React.FC = () => {
     }
   };
 
-  // Update countdown timer every second
+  // Handle opponent switch
+  const handleOpponentSwitch = (newOpponentId: string) => {
+    console.log('🔄 Opponent switch detected, new opponent:', newOpponentId);
+    setOpponentId(newOpponentId);
+    setOpponentName('Opponent'); // For now, just use generic name
+    
+    // Reset stats to 0 since daily competition restarted
+    setUserStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
+    setOpponentStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
+    
+    // Refresh stats
+    if (currentUserId) {
+      fetchAllStats();
+    }
+  };
+
+  // Listen for opponent switches
+  useEffect(() => {
+    const opponentSwitchCallback: OpponentSwitchCallback = {
+      onOpponentSwitch: handleOpponentSwitch
+    };
+    
+    const unsubscribe = globalTimerService.addOpponentSwitchListener(opponentSwitchCallback);
+    
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUserId]);
+
+  // Update countdown timer every second using global timer service
   useEffect(() => {
     const updateTimer = () => {
-      setTimeRemaining(calculateTimeRemaining());
+      setTimeRemaining(globalTimerService.getNextOpponentTimeRemaining());
     };
 
     // Update immediately
@@ -174,23 +239,13 @@ export const StatsScreen: React.FC = () => {
     React.useCallback(() => {
       // Only refresh if we have a current user ID (avoid initial double fetch)
       if (currentUserId) {
-        console.log('StatsScreen focused - refreshing coin data');
+        console.log('📈 StatsScreen focused - refreshing coin data for user:', currentUserId);
         fetchAllStats();
+      } else {
+        console.log('📈 StatsScreen focused but no currentUserId yet');
       }
     }, [currentUserId, opponentId])
   );
-
-  // Set up periodic refresh to show opponent's progress (every 30 seconds)
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      if (currentUserId) {
-        console.log('Periodic refresh - updating coin data');
-        fetchAllStats();
-      }
-    }, 30000); // Refresh every 30 seconds
-
-    return () => clearInterval(refreshInterval);
-  }, [currentUserId, opponentId]);
 
   // Handle Lock In button press
   const handleLockIn = () => {
@@ -201,6 +256,21 @@ export const StatsScreen: React.FC = () => {
   // Handle back navigation
   const handleGoBack = () => {
     navigation.goBack();
+  };
+
+  // Debug function to manually refresh stats
+  const handleDebugRefresh = async () => {
+    console.log('🔍 Manual debug refresh triggered');
+    console.log('🔍 Current user ID:', currentUserId);
+    console.log('🔍 Opponent ID:', opponentId);
+    
+    if (currentUserId) {
+      console.log('🔍 Manually fetching user stats...');
+      await fetchUserStats(currentUserId);
+      console.log('🔍 Current user stats state:', userStats);
+    }
+    
+    Alert.alert('Debug', `User stats: ${userStats.coinsGained} gained, ${userStats.netCoins} net`);
   };
 
   // Render individual stats card for user or opponent
@@ -290,6 +360,11 @@ export const StatsScreen: React.FC = () => {
             <TouchableOpacity style={styles.lockInButton} onPress={handleLockIn}>
               <Text style={styles.lockInButtonText}>Lock In</Text>
             </TouchableOpacity>
+
+            {/* Debug refresh button */}
+            <TouchableOpacity style={styles.debugButton} onPress={handleDebugRefresh}>
+              <Text style={styles.debugButtonText}>🔍 Debug Refresh Stats</Text>
+            </TouchableOpacity>
           </>
         )}
 
@@ -297,6 +372,7 @@ export const StatsScreen: React.FC = () => {
         <View style={styles.countdownContainer}>
           <Text style={styles.countdownLabel}>New opponent in:</Text>
           <Text style={styles.countdownTime}>{timeRemaining}</Text>
+          <Text style={styles.mvpNote}>MVP: 20min cycle for testing</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -495,6 +571,11 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace', // Use monospace for consistent digit spacing
   },
 
+  mvpNote: {
+    fontSize: typography.fontSize.xs,
+    color: colors.darkGray,
+  },
+
   // Loading state styles
   loadingContainer: {
     flex: 1,
@@ -506,6 +587,24 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.medium,
     color: colors.darkGray,
+  },
+
+  // Debug button styles
+  debugButton: {
+    backgroundColor: colors.secondary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.md,
+  },
+
+  debugButtonText: {
+    color: colors.white,
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
   },
 });
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, commonStyles, spacing, typography, shadows } from '../styles/theme';
 import { startFocusSession, completeFocusSession, cancelFocusSession, FocusSession } from '../services/timerService';
+import globalTimerService, { ActiveFocusSession } from '../services/globalTimerService';
 import supabase from '../../lib/supabase';
 
 // Timer states enum for better type safety
@@ -18,8 +19,8 @@ enum TimerState {
 export const TimerDistractionScreen: React.FC = () => {
   const navigation = useNavigation();
   
-  // Timer configuration - 5 minutes in seconds
-  const TIMER_DURATION = 5 * 60; // 300 seconds
+  // Timer configuration - 30 seconds for MVP testing (will be 5 minutes in production)
+  const TIMER_DURATION = 30; // 30 seconds for testing
   const COINS_REWARD = 2; // Coins awarded for completion
   
   // Timer state management
@@ -32,7 +33,74 @@ export const TimerDistractionScreen: React.FC = () => {
   
   // Refs for timer management
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = useRef<number | null>(null);
+
+  // Check for existing active session on component mount
+  useEffect(() => {
+    const checkActiveSession = () => {
+      const activeSession = globalTimerService.getActiveFocusSession();
+      if (activeSession) {
+        // Resume existing session
+        const remaining = globalTimerService.getFocusSessionTimeRemaining();
+        if (remaining > 0) {
+          setTimeRemaining(remaining);
+          setTimerState(TimerState.RUNNING);
+          setCurrentSession({
+            id: activeSession.sessionId,
+            user_id: activeSession.userId,
+            start_time: new Date(activeSession.startTime).toISOString(),
+            duration_minutes: 1,
+            completed: false,
+            coins_awarded: 0,
+            created_at: new Date(activeSession.startTime).toISOString()
+          });
+          startTimerInterval();
+        } else {
+          // Session completed while app was in background
+          handleTimerComplete();
+        }
+      }
+    };
+
+    checkActiveSession();
+  }, []);
+
+  // Handle app state changes (background/foreground)
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        // App came to foreground - check if we need to resume timer
+        const activeSession = globalTimerService.getActiveFocusSession();
+        if (activeSession && timerState === TimerState.RUNNING) {
+          const remaining = globalTimerService.getFocusSessionTimeRemaining();
+          if (remaining > 0) {
+            setTimeRemaining(remaining);
+          } else {
+            // Timer completed while in background
+            handleTimerComplete();
+          }
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [timerState]);
+
+  // Start timer interval
+  const startTimerInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    intervalRef.current = setInterval(() => {
+      const remaining = globalTimerService.getFocusSessionTimeRemaining();
+      setTimeRemaining(remaining);
+      
+      if (remaining <= 0) {
+        handleTimerComplete();
+      }
+    }, 1000);
+  };
 
   // Format time as MM:SS
   const formatTime = (seconds: number): string => {
@@ -57,28 +125,26 @@ export const TimerDistractionScreen: React.FC = () => {
       }
 
       // Create focus session in database
-      const sessionResult = await startFocusSession(user.id, 5); // 5 minutes
+      const sessionResult = await startFocusSession(user.id, 1); // 1 minute (30 seconds is 0.5, but DB expects integer)
       if (sessionResult.error || !sessionResult.data) {
         Alert.alert('Error', 'Failed to start focus session. Please try again.');
         return;
       }
 
-      // Store session data and start timer
+      // Store session data and start global timer
       setCurrentSession(sessionResult.data);
       setTimerState(TimerState.RUNNING);
-      startTimeRef.current = Date.now();
       
-      // Start countdown interval
-      intervalRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            // Timer completed
-            handleTimerComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      // Start global timer service
+      await globalTimerService.startFocusSession(
+        sessionResult.data.id,
+        user.id,
+        TIMER_DURATION,
+        COINS_REWARD
+      );
+      
+      // Start local countdown interval
+      startTimerInterval();
 
     } catch (error) {
       console.error('Error starting timer:', error);
@@ -88,6 +154,8 @@ export const TimerDistractionScreen: React.FC = () => {
 
   // Handle timer completion - award coins
   const handleTimerComplete = async () => {
+    console.log('⏰ Timer completed - starting completion process');
+    
     // Clear interval
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -97,21 +165,68 @@ export const TimerDistractionScreen: React.FC = () => {
     setTimerState(TimerState.COMPLETED);
 
     try {
-      if (currentSession) {
+      let sessionToComplete = currentSession;
+      
+      // If currentSession is null, try to get it from global timer service
+      if (!sessionToComplete) {
+        const activeSession = globalTimerService.getActiveFocusSession();
+        if (activeSession) {
+          console.log('⏰ No currentSession state, but found active session in global service:', activeSession);
+          sessionToComplete = {
+            id: activeSession.sessionId,
+            user_id: activeSession.userId,
+            start_time: new Date(activeSession.startTime).toISOString(),
+            duration_minutes: 1,
+            completed: false,
+            coins_awarded: 0,
+            created_at: new Date(activeSession.startTime).toISOString()
+          };
+          // Update local state
+          setCurrentSession(sessionToComplete);
+        }
+      }
+
+      if (sessionToComplete) {
+        console.log('⏰ Session to complete:', sessionToComplete);
+        
         // Get current user
         const { data: { user } } = await supabase.getUser();
         if (user) {
+          console.log('⏰ User found:', user.id);
+          
           // Complete session and award coins
-          const result = await completeFocusSession(currentSession.id, user.id, COINS_REWARD);
+          console.log('⏰ Calling completeFocusSession with:', {
+            sessionId: sessionToComplete.id,
+            userId: user.id,
+            coinsAwarded: COINS_REWARD
+          });
+          
+          const result = await completeFocusSession(sessionToComplete.id, user.id, COINS_REWARD);
+          console.log('⏰ completeFocusSession result:', result);
+          
           if (result.success) {
+            // Clear global timer
+            await globalTimerService.completeFocusSession();
+            console.log('⏰ Global timer cleared, showing completion modal');
             setShowCompletionModal(true);
           } else {
+            console.error('⏰ Failed to complete session:', result.error);
             Alert.alert('Error', 'Session completed but failed to award coins');
           }
+        } else {
+          console.error('⏰ No user found');
+          Alert.alert('Error', 'User not found');
         }
+      } else {
+        console.error('⏰ No current session found and no active session in global service');
+        // Still clear global timer to prevent stuck states
+        await globalTimerService.completeFocusSession();
+        Alert.alert('Error', 'No active session found');
       }
     } catch (error) {
-      console.error('Error completing session:', error);
+      console.error('⏰ Error completing session:', error);
+      // Still clear global timer to prevent stuck states
+      await globalTimerService.completeFocusSession();
       Alert.alert('Error', 'Session completed but failed to award coins');
     }
   };
@@ -146,6 +261,8 @@ export const TimerDistractionScreen: React.FC = () => {
       if (currentSession) {
         // Cancel session in database
         await cancelFocusSession(currentSession.id);
+        // Clear global timer
+        await globalTimerService.cancelFocusSession();
       }
       setShowCancelModal(true);
     } catch (error) {
@@ -160,7 +277,6 @@ export const TimerDistractionScreen: React.FC = () => {
     setTimerState(TimerState.READY);
     setShowStopConfirmation(false);
     setCurrentSession(null);
-    startTimeRef.current = null;
   };
 
   // Handle back navigation
@@ -275,7 +391,7 @@ export const TimerDistractionScreen: React.FC = () => {
           )}
           {timerState === TimerState.READY && (
             <Text style={styles.statusText}>
-              Ready to start a 5-minute focus session? You'll earn {COINS_REWARD} coins upon completion.
+              Ready to start a 30-second focus session? You'll earn {COINS_REWARD} coins upon completion.
             </Text>
           )}
         </View>
@@ -296,7 +412,7 @@ export const TimerDistractionScreen: React.FC = () => {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>🎉 Congratulations!</Text>
               <Text style={styles.modalMessage}>
-                You have completed 5 minutes of hard work and earned {COINS_REWARD} coins!
+                You have earned {COINS_REWARD} coins!
               </Text>
               <TouchableOpacity 
                 style={styles.modalButton}

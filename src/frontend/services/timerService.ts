@@ -62,8 +62,8 @@ export const startFocusSession = async (userId: string, durationMinutes: number)
       return { data: null, error: result.error };
     }
 
-    // Return the created session data
-    return { data: result.data?.[0] || null, error: null };
+    // Return the created session data - the custom client returns the inserted data directly
+    return { data: result.data?.[0] || result.data, error: null };
   } catch (error) {
     console.error('Error in startFocusSession:', error);
     return { data: null, error: 'Failed to start focus session' };
@@ -76,6 +76,7 @@ export const startFocusSession = async (userId: string, durationMinutes: number)
  */
 export const completeFocusSession = async (sessionId: string, userId: string, coinsAwarded: number): Promise<{ success: boolean; error: string | null }> => {
   try {
+    console.log('🪙 Completing focus session:', { sessionId, userId, coinsAwarded });
     const endTime = new Date().toISOString();
     
     // Update the focus session as completed
@@ -89,9 +90,11 @@ export const completeFocusSession = async (sessionId: string, userId: string, co
       .eq('id', sessionId);
 
     if (sessionResult.error) {
-      console.error('Error completing focus session:', sessionResult.error);
+      console.error('🪙 Error completing focus session:', sessionResult.error);
       return { success: false, error: sessionResult.error };
     }
+
+    console.log('🪙 Focus session updated successfully');
 
     // Create a coin transaction for the awarded coins
     const coinResult = await addCoinTransaction(
@@ -99,17 +102,18 @@ export const completeFocusSession = async (sessionId: string, userId: string, co
       coinsAwarded,
       'focus_session',
       sessionId,
-      `Completed ${5}-minute focus session`
+      `Completed 30-second focus session`
     );
 
     if (coinResult.error) {
-      console.error('Error adding coin transaction:', coinResult.error);
+      console.error('🪙 Error adding coin transaction:', coinResult.error);
       return { success: false, error: coinResult.error };
     }
 
+    console.log('🪙 Coin transaction created successfully:', coinResult.data);
     return { success: true, error: null };
   } catch (error) {
-    console.error('Error in completeFocusSession:', error);
+    console.error('🪙 Error in completeFocusSession:', error);
     return { success: false, error: 'Failed to complete focus session' };
   }
 };
@@ -156,6 +160,8 @@ export const addCoinTransaction = async (
   description?: string
 ): Promise<{ data: CoinTransaction | null; error: string | null }> => {
   try {
+    console.log('💰 Adding coin transaction:', { userId, amount, transactionType, sessionId, description });
+    
     const transactionData: CreateCoinTransactionData = {
       user_id: userId,
       amount,
@@ -164,16 +170,21 @@ export const addCoinTransaction = async (
       description: description || `${transactionType} transaction`
     };
 
+    console.log('💰 Transaction data to insert:', transactionData);
+
     const result = await supabase.from('coin_transactions').insert(transactionData);
     
+    console.log('💰 Database insert result:', result);
+    
     if (result.error) {
-      console.error('Error adding coin transaction:', result.error);
+      console.error('💰 Error adding coin transaction:', result.error);
       return { data: null, error: result.error };
     }
 
-    return { data: result.data?.[0] || null, error: null };
+    console.log('💰 Coin transaction inserted successfully:', result.data);
+    return { data: result.data?.[0] || result.data, error: null };
   } catch (error) {
-    console.error('Error in addCoinTransaction:', error);
+    console.error('💰 Error in addCoinTransaction:', error);
     return { data: null, error: 'Failed to add coin transaction' };
   }
 };
@@ -217,10 +228,14 @@ export const getTodaysCoinTransactions = async (userId: string): Promise<{
   error: string | null 
 }> => {
   try {
+    console.log('📊 Fetching today\'s coin transactions for user:', userId);
+    
     // Get start and end of today in ISO format
     const today = new Date();
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
     const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+
+    console.log('📊 Date range:', { startOfDay, endOfDay });
 
     // Note: This would ideally use date range filtering in Supabase
     // For now, we'll fetch all transactions and filter client-side
@@ -230,15 +245,19 @@ export const getTodaysCoinTransactions = async (userId: string): Promise<{
       .eq('user_id', userId);
 
     if (result.error) {
-      console.error('Error fetching today\'s transactions:', result.error);
+      console.error('📊 Error fetching today\'s transactions:', result.error);
       return { coinsGained: 0, coinsLost: 0, netCoins: 0, error: result.error };
     }
+
+    console.log('📊 All transactions fetched:', result.data?.length || 0);
 
     // Filter transactions for today and calculate stats
     const todaysTransactions = result.data?.filter((transaction: any) => {
       const transactionDate = new Date(transaction.created_at);
       return transactionDate >= new Date(startOfDay) && transactionDate < new Date(endOfDay);
     }) || [];
+
+    console.log('📊 Today\'s transactions:', todaysTransactions);
 
     const coinsGained = todaysTransactions
       .filter((t: any) => t.amount > 0)
@@ -250,9 +269,11 @@ export const getTodaysCoinTransactions = async (userId: string): Promise<{
     
     const netCoins = coinsGained - coinsLost;
 
+    console.log('📊 Calculated stats:', { coinsGained, coinsLost, netCoins });
+
     return { coinsGained, coinsLost, netCoins, error: null };
   } catch (error) {
-    console.error('Error in getTodaysCoinTransactions:', error);
+    console.error('📊 Error in getTodaysCoinTransactions:', error);
     return { coinsGained: 0, coinsLost: 0, netCoins: 0, error: 'Failed to fetch today\'s transactions' };
   }
 }; 

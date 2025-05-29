@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AppState } from 'react-native';
 import supabase from '../../lib/supabase';
+import navigationService from '../services/navigationService';
+import globalTimerService from '../services/globalTimerService';
 import { AuthNavigator } from './AuthNavigator';
 import { CreateProfileScreen } from '../screens/CreateProfileScreen';
 import { OpponentOfTheDay } from '../screens/OpponentOfTheDay';
@@ -40,6 +43,7 @@ export const RootNavigator = () => {
   const [session, setSession] = useState<any>(null);
   const [hasProfile, setHasProfile] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
+  const navigationRef = useRef<any>(null);
 
   const checkSessionAndProfile = async () => {
     try {
@@ -88,10 +92,40 @@ export const RootNavigator = () => {
     await checkSessionAndProfile();
   };
 
+  // Handle app state changes for timer auto-navigation
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: string) => {
+      if (nextAppState === 'active' && session && hasProfile) {
+        // App came to foreground and user is logged in with profile
+        // Check if there's an active focus session
+        setTimeout(async () => {
+          await navigationService.checkForActiveSession();
+        }, 500); // Small delay to ensure navigation is ready
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [session, hasProfile]);
+
   useEffect(() => {
     console.log('RootNavigator mounted');
     checkSessionAndProfile();
   }, []);
+
+  // Set navigation reference when ready
+  const onNavigationReady = () => {
+    if (navigationRef.current) {
+      navigationService.setNavigationRef(navigationRef.current);
+      
+      // Check for active session on initial load
+      if (session && hasProfile) {
+        setTimeout(async () => {
+          await navigationService.checkForActiveSession();
+        }, 1000); // Delay to ensure everything is loaded
+      }
+    }
+  };
 
   // Add navigation state change listener to refresh when needed
   const handleNavigationStateChange = () => {
@@ -122,7 +156,11 @@ export const RootNavigator = () => {
 
   return (
     <SessionContext.Provider value={{ refreshSession }}>
-      <NavigationContainer onStateChange={handleNavigationStateChange}>
+      <NavigationContainer 
+        ref={navigationRef}
+        onReady={onNavigationReady}
+        onStateChange={handleNavigationStateChange}
+      >
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           {!session ? (
             <Stack.Screen name="Auth" component={AuthNavigator} />

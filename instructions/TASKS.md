@@ -84,3 +84,15 @@ Goal: Users can start/stop focus sessions; coins credited in DB;
 ✅ 1.14 Create TimerDistractionScreen with 5-minute focus timer - Implement timer screen with start/stop functionality, coin tracking database schema (coin_transactions and focus_sessions tables), and success/failure modals (2024-12-19)
 
 ✅ 1.15 Integrate real coin tracking with StatsScreen - Replace placeholder data with actual database calls, implement automatic refresh when screen comes into focus, show real user and opponent coin progress from completed focus sessions (2024-12-19)
+
+✅ 1.16 MVP testing optimizations - Change timer from 5 minutes to 30 seconds, new opponent cycle from 24 hours to 20 minutes, remove 30-second periodic refresh in favor of focus-based updates for faster development testing (2024-12-19)
+
+✅ 1.17 Fix timer countdown and database errors - Fixed countdown timer not updating by storing fixed end time instead of recalculating from "now", fixed database integer type error by using 1 minute instead of 0.5, and corrected custom REST client data handling (2024-12-19)
+
+✅ 1.18 Implement persistent global timers - Created global timer service with AsyncStorage persistence for both opponent countdown (20min cycle) and focus session timers (30s), added automatic navigation to timer screen when app reopens with active session, timers now work regardless of app state or screen (2024-12-19)
+
+✅ 1.19 Fix coin tracking and add opponent simulation - Updated completion modal to show "You have earned 2 coins!", added comprehensive debug logging to track coin transactions, created opponent simulator for testing stats updates, added debug button to manually trigger opponent activity (2024-12-19)
+
+✅ 1.20 Fix RLS policies for opponent simulation - Fixed "new row violates row-level security policy" error by updating coin_transactions RLS policy to allow authenticated users to create transactions for any user (needed for opponent simulation), created FIX_RLS_POLICIES.sql script (2024-12-19)
+
+✅ 1.21 Remove opponent simulation for real user testing - Removed opponent simulator service and debug buttons, updated test guide to focus on manual testing with real user accounts, cleaner codebase for production (2024-12-19)
