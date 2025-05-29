@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { colors, commonStyles, spacing, typography, shadows } from '../styles/theme';
+import { getTodaysCoinTransactions } from '../services/timerService';
+import supabase from '../../lib/supabase';
 
 // Interface for stats data structure
 interface StatsData {
@@ -33,24 +35,32 @@ export const StatsScreen: React.FC = () => {
   // State for countdown timer - calculates time until next day at 7:00 AM
   const [timeRemaining, setTimeRemaining] = useState<string>('');
   
-  // Placeholder data for user and opponent stats
-  // TODO: Replace with real data from Supabase when coin system is implemented
+  // State for real coin data
+  const [userStats, setUserStats] = useState<StatsData>({
+    coinsGained: 0,
+    coinsLost: 0,
+    netCoins: 0
+  });
+  
+  const [opponentStats, setOpponentStats] = useState<StatsData>({
+    coinsGained: 0,
+    coinsLost: 0,
+    netCoins: 0
+  });
+  
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Real user and opponent data using actual stats
   const userData: UserData = {
     name: 'You',
-    stats: {
-      coinsGained: 12, // Placeholder: coins earned from focus sessions today
-      coinsLost: 3,    // Placeholder: coins lost from social media usage today
-      netCoins: 9      // Placeholder: net coins for today (gained - lost)
-    }
+    stats: userStats
   };
 
   const opponentData: UserData = {
     name: opponentName, // Use actual opponent name from navigation params
-    stats: {
-      coinsGained: 8,  // Placeholder: opponent's coins earned today
-      coinsLost: 5,    // Placeholder: opponent's coins lost today
-      netCoins: 3      // Placeholder: opponent's net coins today
-    }
+    stats: opponentStats
   };
 
   // Calculate time remaining until next opponent (7:00 AM next day)
@@ -70,6 +80,74 @@ export const StatsScreen: React.FC = () => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Fetch user's coin data from database
+  const fetchUserStats = async (userId: string) => {
+    try {
+      const result = await getTodaysCoinTransactions(userId);
+      if (result.error) {
+        console.error('Error fetching user stats:', result.error);
+        return;
+      }
+      
+      setUserStats({
+        coinsGained: result.coinsGained,
+        coinsLost: result.coinsLost,
+        netCoins: result.netCoins
+      });
+    } catch (error) {
+      console.error('Error in fetchUserStats:', error);
+    }
+  };
+
+  // Fetch opponent's coin data from database
+  const fetchOpponentStats = async (opponentUserId: string) => {
+    try {
+      const result = await getTodaysCoinTransactions(opponentUserId);
+      if (result.error) {
+        console.error('Error fetching opponent stats:', result.error);
+        return;
+      }
+      
+      setOpponentStats({
+        coinsGained: result.coinsGained,
+        coinsLost: result.coinsLost,
+        netCoins: result.netCoins
+      });
+    } catch (error) {
+      console.error('Error in fetchOpponentStats:', error);
+    }
+  };
+
+  // Fetch all stats data
+  const fetchAllStats = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Get current user
+      const { data: { user } } = await supabase.getUser();
+      if (!user) {
+        console.error('No user found');
+        return;
+      }
+      
+      setCurrentUserId(user.id);
+      
+      // Fetch user's stats
+      await fetchUserStats(user.id);
+      
+      // Fetch opponent's stats
+      await fetchOpponentStats(opponentId);
+      
+      // Update last updated timestamp
+      setLastUpdated(new Date());
+      
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Update countdown timer every second
   useEffect(() => {
     const updateTimer = () => {
@@ -85,6 +163,34 @@ export const StatsScreen: React.FC = () => {
     // Cleanup interval on component unmount
     return () => clearInterval(interval);
   }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchAllStats();
+  }, [opponentId]);
+
+  // Refresh data when screen comes into focus (e.g., returning from timer)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Only refresh if we have a current user ID (avoid initial double fetch)
+      if (currentUserId) {
+        console.log('StatsScreen focused - refreshing coin data');
+        fetchAllStats();
+      }
+    }, [currentUserId, opponentId])
+  );
+
+  // Set up periodic refresh to show opponent's progress (every 30 seconds)
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      if (currentUserId) {
+        console.log('Periodic refresh - updating coin data');
+        fetchAllStats();
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [currentUserId, opponentId]);
 
   // Handle Lock In button press
   const handleLockIn = () => {
@@ -149,29 +255,45 @@ export const StatsScreen: React.FC = () => {
           <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
-          <Text style={[commonStyles.heading3, styles.title]}>
-            Daily Challenge
-          </Text>
+          <View style={styles.titleContainer}>
+            <Text style={[commonStyles.heading3, styles.title]}>
+              Daily Challenge
+            </Text>
+            {lastUpdated && (
+              <Text style={styles.lastUpdatedText}>
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            )}
+          </View>
           <View style={styles.headerSpacer} />
         </View>
 
-        {/* User stats card */}
-        {renderStatsCard(userData, true)}
+        {isLoading ? (
+          /* Loading state */
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading coin data...</Text>
+          </View>
+        ) : (
+          <>
+            {/* User stats card */}
+            {renderStatsCard(userData, true)}
 
-        {/* VS indicator */}
-        <View style={styles.vsContainer}>
-          <Text style={styles.vsText}>VS</Text>
-        </View>
+            {/* VS indicator */}
+            <View style={styles.vsContainer}>
+              <Text style={styles.vsText}>VS</Text>
+            </View>
 
-        {/* Opponent stats card */}
-        {renderStatsCard(opponentData, false)}
+            {/* Opponent stats card */}
+            {renderStatsCard(opponentData, false)}
 
-        {/* Lock In button */}
-        <TouchableOpacity style={styles.lockInButton} onPress={handleLockIn}>
-          <Text style={styles.lockInButtonText}>Lock In</Text>
-        </TouchableOpacity>
+            {/* Lock In button */}
+            <TouchableOpacity style={styles.lockInButton} onPress={handleLockIn}>
+              <Text style={styles.lockInButtonText}>Lock In</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
-        {/* Countdown timer */}
+        {/* Countdown timer - always visible */}
         <View style={styles.countdownContainer}>
           <Text style={styles.countdownLabel}>New opponent in:</Text>
           <Text style={styles.countdownTime}>{timeRemaining}</Text>
@@ -209,14 +331,24 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
   },
 
-  title: {
+  titleContainer: {
     flex: 1,
+    alignItems: 'center',
+  },
+
+  title: {
     textAlign: 'center',
     color: colors.black,
   },
 
+  lastUpdatedText: {
+    color: colors.darkGray,
+    fontSize: typography.fontSize.xs,
+    marginTop: spacing.xs,
+  },
+
   headerSpacer: {
-    width: 80, // Same width as back button to center title
+    width: spacing.md,
   },
 
   // Stats card styles
@@ -361,6 +493,19 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     color: colors.secondary,
     fontFamily: 'monospace', // Use monospace for consistent digit spacing
+  },
+
+  // Loading state styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.darkGray,
   },
 });
 
