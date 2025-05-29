@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { getOpponentOfTheDay, getNewOpponent } from '../services/opponentService';
 import supabase from '../../lib/supabase';
 import { colors, commonStyles, spacing, typography } from '../styles/theme';
@@ -21,6 +22,7 @@ export const OpponentOfTheDay: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const navigation = useNavigation();
 
   const fetchOpponent = async (forceRefresh = false) => {
     try {
@@ -58,6 +60,16 @@ export const OpponentOfTheDay: React.FC = () => {
     setIsRefreshing(true);
     await fetchOpponent(true); // Force refresh
     setIsRefreshing(false);
+  };
+
+  // Handle Accept button press - navigates to StatsScreen
+  const handleAcceptChallenge = () => {
+    // Navigate to the StatsScreen to show user vs opponent comparison
+    // Pass opponent data so the screen can display the actual opponent name
+    (navigation as any).navigate('Stats', {
+      opponentName: `${opponent?.firstName} ${opponent?.lastName}`,
+      opponentId: opponent?.id || 'unknown'
+    });
   };
 
   const handleLogout = async () => {
@@ -187,6 +199,16 @@ export const OpponentOfTheDay: React.FC = () => {
             </View>
           </View>
 
+          {/* Accept Challenge Button */}
+          <TouchableOpacity 
+            style={styles.acceptButton}
+            onPress={handleAcceptChallenge}
+          >
+            <Text style={styles.acceptText}>
+              Accept
+            </Text>
+          </TouchableOpacity>
+
           {/* Refresh Button */}
           <TouchableOpacity 
             style={styles.refreshButton}
@@ -263,6 +285,21 @@ const styles = StyleSheet.create({
   infoText: {
     color: colors.black,
     fontWeight: typography.fontWeight.semibold,
+  },
+
+  acceptButton: {
+    backgroundColor: colors.black,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+
+  acceptText: {
+    color: colors.white,
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
   },
 
   refreshButton: {

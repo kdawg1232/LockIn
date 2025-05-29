@@ -65,7 +65,7 @@ Goal: Users can start/stop focus sessions; coins credited in DB;
 
  2.9 Refresh Daily Stats component on focus/unfocus
 
- 2.10 Add Expo toast/snackbar for “+2 coins earned!”
+ 2.10 Add Expo toast/snackbar for "+2 coins earned!"
 
  2.11 Guard against overlapping timers
 
@@ -76,3 +76,9 @@ Goal: Users can start/stop focus sessions; coins credited in DB;
  2.14 Update Home skeleton to show earned coins circle after timer ends
 
  2.15 QA on physical devices
+
+## Discovered During Work
+
+✅ 1.13 Create StatsScreen with Accept button flow - Add "Accept" button to OpponentOfTheDay screen that navigates to StatsScreen showing user vs opponent stats (Coins Gained, Coins Lost, Net Coins) with "Lock In" button and daily countdown timer (2024-12-19)
+
+✅ 1.14 Create TimerDistractionScreen with 5-minute focus timer - Implement timer screen with start/stop functionality, coin tracking database schema (coin_transactions and focus_sessions tables), and success/failure modals (2024-12-19)
