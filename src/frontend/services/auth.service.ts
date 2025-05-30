@@ -11,16 +11,29 @@ type SignUpData = {
 export const authService = {
   async signUp({ email, password, username, firstName, lastName }: SignUpData) {
     try {
+      console.log('🔄 Starting signup process for:', email);
+      
       // 1. Create auth user
       const authResult = await supabase.signUp(email, password);
+      
+      console.log('📊 Auth result:', {
+        success: !authResult.error,
+        hasUser: !!authResult.user,
+        error: authResult.error
+      });
 
       if (authResult.error) {
+        console.error('❌ Auth signup failed:', authResult.error);
         return { success: false, error: authResult.error };
       }
 
       if (!authResult.user) {
+        console.error('❌ No user returned after signup');
         return { success: false, error: 'No user returned after signup' };
       }
+
+      console.log('✅ Auth user created, ID:', authResult.user.id);
+      console.log('🔄 Attempting to insert user profile...');
 
       // 2. Insert user data into users table
       const { error: userError } = await supabase
@@ -34,12 +47,34 @@ export const authService = {
         });
 
       if (userError) {
+        console.error('❌ User profile insert failed:', {
+          error: userError,
+          userData: {
+            id: authResult.user.id,
+            email,
+            username,
+            first_name: firstName,
+            last_name: lastName,
+          }
+        });
         return { success: false, error: userError };
       }
 
+      console.log('✅ User profile created successfully');
+      
+      // Check if email confirmation is required
+      if (!authResult.session) {
+        console.log('📧 Email confirmation required');
+        return { 
+          success: true, 
+          requiresEmailConfirmation: true,
+          message: 'Account created! Please check your email to confirm your account before signing in.'
+        };
+      }
+      
       return { success: true };
     } catch (error) {
-      console.error('Sign up error:', error);
+      console.error('❌ Unexpected signup error:', error);
       return { success: false, error: 'An error occurred during sign up' };
     }
   },

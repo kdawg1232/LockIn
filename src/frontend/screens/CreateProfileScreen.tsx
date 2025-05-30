@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import supabase from '../../lib/supabase';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { SessionContext } from '../navigation/RootNavigator';
 
 export const CreateProfileScreen = () => {
   const navigation = useNavigation();
+  const { refreshSession } = useContext(SessionContext);
   const [formData, setFormData] = useState({
     university: '',
     major: '',
@@ -34,13 +36,10 @@ export const CreateProfileScreen = () => {
 
       if (error) throw error;
 
-      // Reset the navigation stack and navigate to OpponentOfTheDay
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'OpponentOfTheDay' }],
-        })
-      );
+      // Instead of trying to navigate directly, refresh the session
+      // This will trigger the root navigator to show the correct screen
+      await refreshSession();
+      
     } catch (error) {
       console.error('Profile completion error:', error);
       Alert.alert('Error', 'Failed to complete profile. Please try again.');

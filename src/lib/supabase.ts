@@ -74,6 +74,9 @@ class SupabaseRestClient {
   // Sign up with email and password
   async signUp(email: string, password: string): Promise<AuthResponse> {
     try {
+      console.log('🔗 Making signup request to:', `${this.baseUrl}/auth/v1/signup`);
+      console.log('🔑 Using API key:', this.anonKey.substring(0, 20) + '...');
+      
       const response = await fetch(`${this.baseUrl}/auth/v1/signup`, {
         method: 'POST',
         headers: {
@@ -84,25 +87,50 @@ class SupabaseRestClient {
       });
 
       const data = await response.json();
+      
+      console.log('📡 Signup response status:', response.status);
+      console.log('📄 Signup response data:', data);
 
       if (!response.ok) {
+        console.error('❌ Signup request failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
         return { user: null, session: null, error: data.error_description || data.msg || 'Sign up failed' };
       }
 
-      // Store session if provided
+      // Convert Supabase user format to our User interface
+      const user: User | null = data.id ? {
+        id: data.id,
+        email: data.email,
+        created_at: data.created_at,
+        email_confirmed_at: data.email_confirmed_at
+      } : null;
+
+      // Store session if provided (user is immediately confirmed)
       if (data.access_token) {
+        console.log('🎫 Access token received, storing session');
         const session: Session = {
           access_token: data.access_token,
           refresh_token: data.refresh_token,
           expires_at: data.expires_at,
-          user: data.user,
+          user: user!,
         };
         await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
-        return { user: data.user, session, error: null };
+        return { user, session, error: null };
       }
 
-      return { user: data.user, session: null, error: null };
+      // No access token means email confirmation is required, but user was created successfully
+      if (user) {
+        console.log('✅ User created successfully, email confirmation required');
+        return { user, session: null, error: null };
+      }
+
+      console.error('❌ No user data in successful response');
+      return { user: null, session: null, error: 'No user data returned' };
     } catch (error) {
+      console.error('🚨 Network error during signup:', error);
       return { user: null, session: null, error: 'Network error during sign up' };
     }
   }

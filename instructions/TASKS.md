@@ -64,15 +64,6 @@ Definition of Done: A new user can register, log in, and see the scaffolding of 
 
 ✅ 1.21 Remove opponent simulation for real user testing - Removed opponent simulator service and debug buttons, updated test guide to focus on manual testing with real user accounts, cleaner codebase for production (2024-12-19)
 
-Next to do: 
-
-1.22 Do the Profile Screen where it has total coins, Calendar where the month is shown where each day is marked by red or green. Red means that you lost against opponent, green means you won against opponent. For now, since we are doing 20 minute intervals, we will only keep track of the previous 5 interval sessions for now. (MIGHT HAVE TO ALTER DATABASE FOR COIN TRANSACTIONS TO HAVE ANOTHER COLUMN FOR TOTAL COINS)
-
-1.23 Add in functionality: If focus timer is on, social media apps: instagram, twitter, reddit, snapchat, and tiktok will not work until focus timer is done. 
-
-1.24 On the daily stats screen, if user clicks on their card: goes to new screen: UserStatsScreen where there is a graph showing how much time has been spent on social media apps, each app individually. Every 15 minutes on any app will result in -1 coin. Will have to get data from iphone activity tracker. (MIGHT NEED TO CREATE DATABASE FOR THIS (ActivityTracker Database))
-
-1.25 If user clicks on the opponents card, it should go to new screen: OpponentStatsScreen where there is a graph showing how much time has been spent on social media apps, each app individually. Every 15 minutes on any app will result in -1 coin. Will have to get data from iphone activity tracker. Basically the same thing as 1.24. 
-
-1.26 Make it more visually appealing. Get UI inspiration from pinterest or whatever. Add in cool features. END OF MVP. 
+✅ 1.22 Debug signup error "Failed to create account" - Added comprehensive error logging to auth service, signup screen, and Supabase client to identify the exact cause of signup failures. FIXED: Issue was email confirmation flow not being handled properly - users were being created successfully but code was incorrectly reporting failure. (2024-12-26)
+ 
 

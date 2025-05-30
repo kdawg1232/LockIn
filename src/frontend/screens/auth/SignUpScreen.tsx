@@ -45,6 +45,13 @@ export const SignUpScreen = () => {
 
     setIsLoading(true);
     try {
+      console.log('🔄 Attempting signup with:', {
+        email: formData.email,
+        username: formData.username,
+        firstName: formData.firstName,
+        lastName: formData.lastName
+      });
+
       const result = await authService.signUp({
         email: formData.email,
         password: formData.password,
@@ -53,15 +60,34 @@ export const SignUpScreen = () => {
         lastName: formData.lastName,
       });
 
+      console.log('📊 Signup result:', result);
+
       if (result.success) {
         console.log('✅ Account created successfully');
-        Alert.alert('Success', 'Account created successfully! Please sign in.', [
-          { text: 'OK', onPress: () => navigation.navigate('SignIn') }
-        ]);
+        
+        if (result.requiresEmailConfirmation) {
+          Alert.alert(
+            'Success', 
+            result.message || 'Account created! Please check your email to confirm your account before signing in.',
+            [{ text: 'OK', onPress: () => navigation.navigate('SignIn') }]
+          );
+        } else {
+          Alert.alert('Success', 'Account created successfully! Please sign in.', [
+            { text: 'OK', onPress: () => navigation.navigate('SignIn') }
+          ]);
+        }
       } else {
-        Alert.alert('Error', 'Failed to create account. Please try again.');
+        console.error('❌ Signup failed:', result.error);
+        
+        // Show more specific error message if available
+        const errorMessage = typeof result.error === 'string' 
+          ? result.error 
+          : result.error?.message || 'Failed to create account. Please try again.';
+          
+        Alert.alert('Error', errorMessage);
       }
     } catch (error) {
+      console.error('❌ Unexpected error during signup:', error);
       Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
