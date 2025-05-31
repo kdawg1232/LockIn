@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, AppState } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, AppState, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, commonStyles, spacing, typography, shadows } from '../styles/theme';
 import { startFocusSession, completeFocusSession, cancelFocusSession, FocusSession } from '../services/timerService';
 import globalTimerService, { ActiveFocusSession } from '../services/globalTimerService';
+import { useAppBlocking } from '../hooks/useAppBlocking';
 import supabase from '../../lib/supabase';
 
 // Timer states enum for better type safety
@@ -18,6 +19,13 @@ enum TimerState {
 
 export const TimerDistractionScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { 
+    isAuthorized,
+    isBlocking,
+    requestAuthorization,
+    startBlocking,
+    stopBlocking
+  } = useAppBlocking();
   
   // Timer configuration - 30 seconds for MVP testing (will be 5 minutes in production)
   const TIMER_DURATION = 30; // 30 seconds for testing
@@ -86,6 +94,13 @@ export const TimerDistractionScreen: React.FC = () => {
     return () => subscription?.remove();
   }, [timerState]);
 
+  // Request Screen Time authorization on mount for iOS
+  useEffect(() => {
+    if (Platform.OS === 'ios' && !isAuthorized) {
+      requestAuthorization();
+    }
+  }, []);
+
   // Start timer interval
   const startTimerInterval = () => {
     if (intervalRef.current) {
@@ -124,8 +139,29 @@ export const TimerDistractionScreen: React.FC = () => {
         return;
       }
 
+      // On iOS, ensure we have Screen Time authorization
+      if (Platform.OS === 'ios' && !isAuthorized) {
+        const authorized = await requestAuthorization();
+        if (!authorized) {
+          Alert.alert(
+            'Screen Time Access Required',
+            'To block distracting apps during focus sessions, please grant Screen Time access.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Open Settings',
+                onPress: () => {
+                  // This will be implemented in Swift to open Settings
+                }
+              }
+            ]
+          );
+          return;
+        }
+      }
+
       // Create focus session in database
-      const sessionResult = await startFocusSession(user.id, 1); // 1 minute (30 seconds is 0.5, but DB expects integer)
+      const sessionResult = await startFocusSession(user.id, 1);
       if (sessionResult.error || !sessionResult.data) {
         Alert.alert('Error', 'Failed to start focus session. Please try again.');
         return;
@@ -142,6 +178,9 @@ export const TimerDistractionScreen: React.FC = () => {
         TIMER_DURATION,
         COINS_REWARD
       );
+      
+      // Start app blocking
+      await startBlocking();
       
       // Start local countdown interval
       startTimerInterval();
@@ -161,6 +200,9 @@ export const TimerDistractionScreen: React.FC = () => {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+
+    // Stop app blocking
+    await stopBlocking();
 
     setTimerState(TimerState.COMPLETED);
 
@@ -254,6 +296,9 @@ export const TimerDistractionScreen: React.FC = () => {
       intervalRef.current = null;
     }
 
+    // Stop app blocking
+    await stopBlocking();
+
     setTimerState(TimerState.CANCELLED);
     setShowStopConfirmation(false);
 
@@ -267,7 +312,7 @@ export const TimerDistractionScreen: React.FC = () => {
       setShowCancelModal(true);
     } catch (error) {
       console.error('Error cancelling session:', error);
-      setShowCancelModal(true); // Still show modal even if DB update fails
+      setShowCancelModal(true);
     }
   };
 
@@ -385,13 +430,33 @@ export const TimerDistractionScreen: React.FC = () => {
         {/* Status message */}
         <View style={styles.statusContainer}>
           {timerState === TimerState.RUNNING && (
-            <Text style={styles.statusText}>
-              Stay focused! You'll earn {COINS_REWARD} coins when you complete this session.
-            </Text>
+            <>
+              <Text style={styles.statusText}>
+                Stay focused! You'll earn {COINS_REWARD} coins when you complete this session.
+              </Text>
+              <View style={styles.blockedAppsContainer}>
+                <Text style={styles.blockedAppsTitle}>
+                  {Platform.OS === 'ios' && isBlocking ? '🚫 Apps Blocked:' : '⚠️ App Blocking Available on iOS:'}
+                </Text>
+                <View style={styles.blockedAppsList}>
+                  <Text style={styles.blockedAppItem}>• Instagram</Text>
+                  <Text style={styles.blockedAppItem}>• Twitter/X</Text>
+                  <Text style={styles.blockedAppItem}>• Reddit</Text>
+                  <Text style={styles.blockedAppItem}>• Snapchat</Text>
+                  <Text style={styles.blockedAppItem}>• TikTok</Text>
+                </View>
+                {Platform.OS !== 'ios' && (
+                  <Text style={styles.blockedAppsNote}>
+                    Note: Full app blocking requires iOS. On Android, we'll help you stay focused with notifications.
+                  </Text>
+                )}
+              </View>
+            </>
           )}
           {timerState === TimerState.READY && (
             <Text style={styles.statusText}>
               Ready to start a 30-second focus session? You'll earn {COINS_REWARD} coins upon completion.
+              {Platform.OS === 'ios' && !isAuthorized && '\n\nTap Start to enable app blocking.'}
             </Text>
           )}
         </View>
@@ -656,6 +721,40 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
+    textAlign: 'center',
+  },
+
+  blockedAppsContainer: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.cream,
+    borderRadius: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+
+  blockedAppsTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.black,
+    marginBottom: spacing.sm,
+  },
+
+  blockedAppsList: {
+    marginLeft: spacing.sm,
+  },
+
+  blockedAppItem: {
+    fontSize: typography.fontSize.base,
+    color: colors.darkGray,
+    marginVertical: spacing.xs / 2,
+  },
+
+  blockedAppsNote: {
+    fontSize: typography.fontSize.sm,
+    color: colors.darkGray,
+    fontStyle: 'italic',
+    marginTop: spacing.sm,
     textAlign: 'center',
   },
 });

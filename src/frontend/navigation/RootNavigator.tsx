@@ -5,6 +5,7 @@ import { AppState } from 'react-native';
 import supabase from '../../lib/supabase';
 import navigationService from '../services/navigationService';
 import globalTimerService from '../services/globalTimerService';
+import appBlockerService from '../services/appBlockerService';
 import { AuthNavigator } from './AuthNavigator';
 import { CreateProfileScreen } from '../screens/CreateProfileScreen';
 import { OpponentOfTheDay } from '../screens/OpponentOfTheDay';
@@ -106,6 +107,16 @@ export const RootNavigator = () => {
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
+  }, [session, hasProfile]);
+
+  // Initialize app blocker service
+  useEffect(() => {
+    if (session && hasProfile) {
+      appBlockerService.initialize();
+      return () => {
+        appBlockerService.cleanup();
+      };
+    }
   }, [session, hasProfile]);
 
   useEffect(() => {

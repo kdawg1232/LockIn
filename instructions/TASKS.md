@@ -67,3 +67,59 @@ Definition of Done: A new user can register, log in, and see the scaffolding of 
 ✅ 1.22 Debug signup error "Failed to create account" - Added comprehensive error logging to auth service, signup screen, and Supabase client to identify the exact cause of signup failures. FIXED: Issue was email confirmation flow not being handled properly - users were being created successfully but code was incorrectly reporting failure. (2024-12-26)
  
 
+
+## Sprint 2 - Core Focus Features
+Goal: Implement core focus timer functionality, including social media blocking and enhanced timer UI.
+
+2.1 Enhance timer UI
+- Add circular progress animation
+- Improve visual feedback during focus
+- Add haptic feedback on start/stop/complete
+
+2.2 Implement coin rewards system
+- Create coins table in Supabase
+- Track coin history
+- Add animations for coin earnings
+- Show coin balance in profile
+
+2.3 Add opponent matching system
+- Implement daily opponent selection
+- Create matching algorithm
+- Add opponent profile preview
+- Show win/loss history
+
+2.4 Create leaderboard system
+- Design leaderboard UI
+- Implement scoring system
+- Add weekly/monthly views
+- Show user rankings
+
+2.5 Add push notifications
+- Set up Expo notifications
+- Add session completion notifications
+- Implement opponent challenge notifications
+- Add daily reminder options
+
+2.6 Implement app blocking foundation (while waiting for Apple approval)
+- Create `useAppBlocking` hook ✅
+- Add placeholder UI for blocked apps ✅
+- Implement temporary URL scheme blocking
+- Prepare native module interface
+- Add graceful fallback for Android
+
+2.7 Add user settings
+- Create settings screen
+- Add notification preferences
+- Configure session durations
+- Manage blocked apps list
+
+2.8 Enhance profile screen
+- Add achievement badges
+- Show focus session history
+- Display streak information
+- Add profile customization
+
+Definition of Done: All core features are implemented and working with placeholder app blocking, ready for native module integration when Apple approves.
+
+
+

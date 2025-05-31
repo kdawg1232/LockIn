@@ -1,3 +1,43 @@
+
+-- Users Database
+
+-- Drop existing table
+drop table if exists public.users;
+
+-- Recreate users table with new fields
+create table public.users (
+  id uuid references auth.users on delete cascade not null primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  email text unique not null,
+  username text unique not null,
+  first_name text not null,
+  last_name text not null,
+  university text,
+  major text,
+  avatar_url text,
+  profile_completed boolean default false
+);
+
+-- Enable RLS
+alter table public.users enable row level security;
+
+-- Create policies
+create policy "Users can read their own data" on public.users
+  for select using (auth.uid() = id);
+
+create policy "Users can update their own data" on public.users
+  for update using (auth.uid() = id);
+
+create policy "Enable insert for authentication users only" on public.users
+  for insert
+  with check (true);
+
+-- Create indexes for performance
+create index users_email_idx on public.users (email);
+create index users_username_idx on public.users (username);
+
+
+
 -- Fixed Database Schema for LockIn App Coin Tracking System
 -- This addresses RLS policy issues and supports opponent stats viewing
 
@@ -73,16 +113,6 @@ CREATE POLICY "Users can update their own coin transactions" ON coin_transaction
 CREATE POLICY "Users can delete their own coin transactions" ON coin_transactions
     FOR DELETE USING (auth.uid() = user_id);
 
--- Optional: Create a view for easy stats calculation
-CREATE OR REPLACE VIEW user_daily_stats AS
-SELECT 
-    user_id,
-    DATE(created_at) as date,
-    SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as coins_gained,
-    ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) as coins_lost,
-    SUM(amount) as net_coins
-FROM coin_transactions
-GROUP BY user_id, DATE(created_at);
 
 -- Grant access to the view
 GRANT SELECT ON user_daily_stats TO authenticated;
@@ -104,4 +134,4 @@ COMMENT ON VIEW user_daily_stats IS 'Aggregated daily coin statistics per user f
 -- INSERT INTO coin_transactions (user_id, amount, transaction_type, description) 
 -- VALUES (auth.uid(), 2, 'focus_session', 'Test transaction');
 -- 
--- SELECT * FROM coin_transactions WHERE user_id = auth.uid(); 
+-- SELECT * FROM coin_transactions WHERE user_id = auth.uid();
