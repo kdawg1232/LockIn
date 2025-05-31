@@ -65,7 +65,8 @@ Definition of Done: A new user can register, log in, and see the scaffolding of 
 ✅ 1.21 Remove opponent simulation for real user testing - Removed opponent simulator service and debug buttons, updated test guide to focus on manual testing with real user accounts, cleaner codebase for production (2024-12-19)
 
 ✅ 1.22 Debug signup error "Failed to create account" - Added comprehensive error logging to auth service, signup screen, and Supabase client to identify the exact cause of signup failures. FIXED: Issue was email confirmation flow not being handled properly - users were being created successfully but code was incorrectly reporting failure. (2024-12-26)
- 
+
+✅ 1.25 Create UserStatsScreen with app usage graphs and Screen Time API integration - Add clickable user card on daily stats screen that navigates to UserStatsScreen showing social media app usage graphs (each app individually), with -1 coin per 15 minutes rule. Implement foundation for Apple Screen Time API and Family Controls framework integration with dummy data for now. Update DATABASE.sql with activity_tracking table schema. (2024-12-26)
 
 
 ## Sprint 2 - Core Focus Features

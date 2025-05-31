@@ -10,6 +10,7 @@ import { AuthNavigator } from './AuthNavigator';
 import { CreateProfileScreen } from '../screens/CreateProfileScreen';
 import { OpponentOfTheDay } from '../screens/OpponentOfTheDay';
 import { StatsScreen } from '../screens/StatsScreen';
+import { UserStatsScreen } from '../screens/UserStatsScreen';
 import { TimerDistractionScreen } from '../screens/TimerDistractionScreen';
 import { View, Text } from 'react-native';
 
@@ -20,6 +21,11 @@ type RootStackParamList = {
   Stats: {
     opponentName: string;
     opponentId: string;
+  };
+  UserStats: undefined;
+  OpponentStats: {
+    opponentId: string;
+    opponentName: string;
   };
   Timer: undefined;
 };
@@ -181,6 +187,8 @@ export const RootNavigator = () => {
             <>
               <Stack.Screen name="OpponentOfTheDay" component={OpponentOfTheDay} />
               <Stack.Screen name="Stats" component={StatsScreen} />
+              <Stack.Screen name="UserStats" component={UserStatsScreen} />
+              <Stack.Screen name="OpponentStats" component={UserStatsScreen} />
               <Stack.Screen name="Timer" component={TimerDistractionScreen} />
             </>
           )}

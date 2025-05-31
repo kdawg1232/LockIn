@@ -274,48 +274,66 @@ export const StatsScreen: React.FC = () => {
   };
 
   // Render individual stats card for user or opponent
-  const renderStatsCard = (user: UserData, isUser: boolean = false) => (
-    <View style={[styles.statsCard, isUser ? styles.userCard : styles.opponentCard]}>
-      {/* Card header with user name */}
-      <View style={styles.cardHeader}>
-        <Text style={[commonStyles.heading3, styles.cardTitle]}>
-          {user.name}
-        </Text>
-        {isUser && (
-          <View style={styles.userBadge}>
-            <Text style={styles.userBadgeText}>YOU</Text>
+  const renderStatsCard = (user: UserData, isUser: boolean = false) => {
+    const handleCardPress = () => {
+      if (isUser) {
+        (navigation as any).navigate('UserStats');
+      } else {
+        // Navigate to opponent stats screen
+        (navigation as any).navigate('OpponentStats', {
+          opponentId: opponentId,
+          opponentName: user.name
+        });
+      }
+    };
+
+    return (
+      <TouchableOpacity 
+        style={[styles.statsCard, isUser ? styles.userCard : styles.opponentCard]}
+        onPress={handleCardPress}
+        activeOpacity={0.7}
+      >
+        {/* Card header with user name */}
+        <View style={styles.cardHeader}>
+          <Text style={[commonStyles.heading3, styles.cardTitle]}>
+            {user.name}
+          </Text>
+          {isUser && (
+            <View style={styles.userBadge}>
+              <Text style={styles.userBadgeText}>YOU</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Stats display */}
+        <View style={styles.statsContainer}>
+          {/* Coins Gained */}
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Coins Gained</Text>
+            <Text style={[styles.statValue, styles.gainedValue]}>
+              +{user.stats.coinsGained}
+            </Text>
           </View>
-        )}
-      </View>
 
-      {/* Stats display */}
-      <View style={styles.statsContainer}>
-        {/* Coins Gained */}
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Coins Gained</Text>
-          <Text style={[styles.statValue, styles.gainedValue]}>
-            +{user.stats.coinsGained}
-          </Text>
-        </View>
+          {/* Coins Lost */}
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Coins Lost</Text>
+            <Text style={[styles.statValue, styles.lostValue]}>
+              -{user.stats.coinsLost}
+            </Text>
+          </View>
 
-        {/* Coins Lost */}
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Coins Lost</Text>
-          <Text style={[styles.statValue, styles.lostValue]}>
-            -{user.stats.coinsLost}
-          </Text>
+          {/* Net Coins */}
+          <View style={[styles.statItem, styles.netCoinsItem]}>
+            <Text style={styles.statLabel}>Net Coins</Text>
+            <Text style={[styles.statValue, styles.netValue, user.stats.netCoins >= 0 ? styles.positiveNet : styles.negativeNet]}>
+              {user.stats.netCoins >= 0 ? '+' : ''}{user.stats.netCoins}
+            </Text>
+          </View>
         </View>
-
-        {/* Net Coins */}
-        <View style={[styles.statItem, styles.netCoinsItem]}>
-          <Text style={styles.statLabel}>Net Coins</Text>
-          <Text style={[styles.statValue, styles.netValue, user.stats.netCoins >= 0 ? styles.positiveNet : styles.negativeNet]}>
-            {user.stats.netCoins >= 0 ? '+' : ''}{user.stats.netCoins}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={commonStyles.safeArea}>

@@ -187,7 +187,7 @@ When submitting the request at developer.apple.com/contact/request/screen-time-a
 
 #### 2. Screen Time API Usage
 * **FamilyControls Implementation**:
-  - User-initiated focus sessions (30/60 min)
+  - User-initiated focus sessions
   - Temporary blocks on specific social apps
   - User can cancel session at any time
   - All restrictions auto-lift when session ends
