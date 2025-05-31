@@ -258,6 +258,11 @@ export const StatsScreen: React.FC = () => {
     navigation.goBack();
   };
 
+  // Handle profile navigation
+  const handleProfilePress = () => {
+    (navigation as any).navigate('Profile');
+  };
+
   // Debug function to manually refresh stats
   const handleDebugRefresh = async () => {
     console.log('🔍 Manual debug refresh triggered');
@@ -353,7 +358,9 @@ export const StatsScreen: React.FC = () => {
               </Text>
             )}
           </View>
-          <View style={styles.headerSpacer} />
+          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
+            <Text style={styles.profileButtonText}>Profile</Text>
+          </TouchableOpacity>
         </View>
 
         {isLoading ? (
@@ -623,6 +630,20 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
+  },
+
+  // Profile button styles
+  profileButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.lightGray,
+    borderRadius: spacing.sm,
+  },
+
+  profileButtonText: {
+    color: colors.black,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
   },
 });
 

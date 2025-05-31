@@ -20,7 +20,6 @@ export const OpponentOfTheDay: React.FC = () => {
   const { refreshSession } = useContext(SessionContext);
   const [opponent, setOpponent] = useState<OpponentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const navigation = useNavigation();
 
@@ -72,37 +71,6 @@ export const OpponentOfTheDay: React.FC = () => {
     });
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            setIsLoggingOut(true);
-            try {
-              await supabase.signOut();
-              
-              // Refresh session state which will trigger navigation change
-              await refreshSession();
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-            } finally {
-              setIsLoggingOut(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   useEffect(() => {
     const initializeFetch = async () => {
       setIsLoading(true);
@@ -141,20 +109,11 @@ export const OpponentOfTheDay: React.FC = () => {
   return (
     <SafeAreaView style={commonStyles.safeArea}>
       <View style={styles.container}>
-        {/* Header with logout button */}
+        {/* Header */}
         <View style={styles.header}>
           <Text style={[commonStyles.heading3, styles.title]}>
             Opponent of the Day
           </Text>
-          <TouchableOpacity 
-            style={styles.logoutButton}
-            onPress={handleLogout}
-            disabled={isLoggingOut}
-          >
-            <Text style={styles.logoutText}>
-              {isLoggingOut ? 'Logging out...' : 'Logout'}
-            </Text>
-          </TouchableOpacity>
         </View>
         
         <View style={styles.opponentCard}>
@@ -233,28 +192,12 @@ const styles = StyleSheet.create({
   },
   
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
   
   title: {
-    flex: 1,
     textAlign: 'center',
-  },
-  
-  logoutButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.error,
-    borderRadius: spacing.sm,
-  },
-  
-  logoutText: {
-    color: colors.white,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
   },
   
   opponentCard: {

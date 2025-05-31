@@ -68,6 +68,8 @@ Definition of Done: A new user can register, log in, and see the scaffolding of 
 
 ✅ 1.25 Create UserStatsScreen with app usage graphs and Screen Time API integration - Add clickable user card on daily stats screen that navigates to UserStatsScreen showing social media app usage graphs (each app individually), with -1 coin per 15 minutes rule. Implement foundation for Apple Screen Time API and Family Controls framework integration with dummy data for now. Update DATABASE.sql with activity_tracking table schema. (2024-12-26)
 
+✅ 1.26 Create ProfileScreen with user management - Create ProfileScreen accessible from StatsScreen via top-right button. Display user profile pic, school, major, and name. Add "Edit Profile" button for updating user information in database. Include "Logout" button at bottom to sign out. Remove existing logout button from OpponentOfTheDay screen. (2024-12-26)
+
 
 ## Sprint 2 - Core Focus Features
 Goal: Implement core focus timer functionality, including social media blocking and enhanced timer UI.

@@ -12,6 +12,7 @@ import { OpponentOfTheDay } from '../screens/OpponentOfTheDay';
 import { StatsScreen } from '../screens/StatsScreen';
 import { UserStatsScreen } from '../screens/UserStatsScreen';
 import { TimerDistractionScreen } from '../screens/TimerDistractionScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 import { View, Text } from 'react-native';
 
 type RootStackParamList = {
@@ -28,6 +29,7 @@ type RootStackParamList = {
     opponentName: string;
   };
   Timer: undefined;
+  Profile: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -190,6 +192,7 @@ export const RootNavigator = () => {
               <Stack.Screen name="UserStats" component={UserStatsScreen} />
               <Stack.Screen name="OpponentStats" component={UserStatsScreen} />
               <Stack.Screen name="Timer" component={TimerDistractionScreen} />
+              <Stack.Screen name="Profile" component={ProfileScreen} />
             </>
           )}
         </Stack.Navigator>
