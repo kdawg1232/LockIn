@@ -367,7 +367,11 @@ export const TimerDistractionScreen: React.FC = () => {
     switch (timerState) {
       case TimerState.READY:
         return (
-          <TouchableOpacity style={styles.startButton} onPress={handleStartTimer}>
+          <TouchableOpacity 
+            style={styles.startButton} 
+            onPress={handleStartTimer}
+            activeOpacity={0.8}
+          >
             <Text style={styles.startButtonText}>Start Focus Session</Text>
           </TouchableOpacity>
         );
@@ -377,6 +381,7 @@ export const TimerDistractionScreen: React.FC = () => {
           <TouchableOpacity 
             style={[styles.stopButton, showStopConfirmation && styles.confirmButton]} 
             onPress={handleStopPress}
+            activeOpacity={0.8}
           >
             <Text style={styles.stopButtonText}>
               {showStopConfirmation ? 'Are you sure?' : 'Stop'}
@@ -387,7 +392,11 @@ export const TimerDistractionScreen: React.FC = () => {
       case TimerState.COMPLETED:
       case TimerState.CANCELLED:
         return (
-          <TouchableOpacity style={styles.resetButton} onPress={handleResetTimer}>
+          <TouchableOpacity 
+            style={styles.resetButton} 
+            onPress={handleResetTimer}
+            activeOpacity={0.8}
+          >
             <Text style={styles.resetButtonText}>Start New Session</Text>
           </TouchableOpacity>
         );
@@ -398,26 +407,35 @@ export const TimerDistractionScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={commonStyles.safeArea}>
-      <View style={styles.container}>
-        {/* Header with back button */}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        {/* Header with back button and title */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={handleGoBack}
+            activeOpacity={0.8}
+          >
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
-          <Text style={[commonStyles.heading3, styles.title]}>
-            Focus Session
-          </Text>
-          <View style={styles.headerSpacer} />
         </View>
+
+        {/* Title */}
+        <Text style={styles.title}>Focus Session</Text>
 
         {/* Timer display */}
         <View style={styles.timerContainer}>
           {/* Circular progress indicator */}
           <View style={styles.timerCircle}>
-            <View style={[styles.progressCircle, { 
-              transform: [{ rotate: `${(getProgressPercentage() * 3.6)}deg` }] 
-            }]} />
+            {/* Progress ring - darker color fills as timer progresses */}
+            <View style={[
+              styles.progressRing, 
+              { 
+                transform: [{ rotate: `${-90 + (getProgressPercentage() * 3.6)}deg` }]
+              }
+            ]} />
+            
+            {/* Timer content */}
             <View style={styles.timerInner}>
               <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
               <Text style={styles.timerLabel}>
@@ -427,37 +445,31 @@ export const TimerDistractionScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Status message */}
+        {/* Status messages */}
         <View style={styles.statusContainer}>
-          {timerState === TimerState.RUNNING && (
+          {timerState === TimerState.READY && (
             <>
-              <Text style={styles.statusText}>
-                Stay focused! You'll earn {COINS_REWARD} coins when you complete this session.
+              <Text style={styles.statusTitle}>
+                Ready to start a 30-second focus session?
               </Text>
-              <View style={styles.blockedAppsContainer}>
-                <Text style={styles.blockedAppsTitle}>
-                  {Platform.OS === 'ios' && isBlocking ? '🚫 Apps Blocked:' : '⚠️ App Blocking Available on iOS:'}
-                </Text>
-                <View style={styles.blockedAppsList}>
-                  <Text style={styles.blockedAppItem}>• Instagram</Text>
-                  <Text style={styles.blockedAppItem}>• Twitter/X</Text>
-                  <Text style={styles.blockedAppItem}>• Reddit</Text>
-                  <Text style={styles.blockedAppItem}>• Snapchat</Text>
-                  <Text style={styles.blockedAppItem}>• TikTok</Text>
-                </View>
-                {Platform.OS !== 'ios' && (
-                  <Text style={styles.blockedAppsNote}>
-                    Note: Full app blocking requires iOS. On Android, we'll help you stay focused with notifications.
-                  </Text>
-                )}
-              </View>
+              <Text style={styles.statusSubtitle}>
+                You'll earn {COINS_REWARD} coins upon completion.
+              </Text>
+              <Text style={styles.statusNote}>
+                Tap Start to enable app blocking.
+              </Text>
             </>
           )}
-          {timerState === TimerState.READY && (
-            <Text style={styles.statusText}>
-              Ready to start a 30-second focus session? You'll earn {COINS_REWARD} coins upon completion.
-              {Platform.OS === 'ios' && !isAuthorized && '\n\nTap Start to enable app blocking.'}
-            </Text>
+          
+          {timerState === TimerState.RUNNING && (
+            <>
+              <Text style={styles.statusTitle}>
+                Stay focused! Apps are blocked.
+              </Text>
+              <Text style={styles.statusSubtitle}>
+                You'll earn {COINS_REWARD} coins when you complete this session.
+              </Text>
+            </>
           )}
         </View>
 
@@ -485,6 +497,7 @@ export const TimerDistractionScreen: React.FC = () => {
                   setShowCompletionModal(false);
                   handleResetTimer();
                 }}
+                activeOpacity={0.8}
               >
                 <Text style={styles.modalButtonText}>Continue</Text>
               </TouchableOpacity>
@@ -511,6 +524,7 @@ export const TimerDistractionScreen: React.FC = () => {
                   setShowCancelModal(false);
                   handleResetTimer();
                 }}
+                activeOpacity={0.8}
               >
                 <Text style={styles.modalButtonText}>OK</Text>
               </TouchableOpacity>
@@ -525,39 +539,48 @@ export const TimerDistractionScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    backgroundColor: '#E8D5BC', // tan-200 (background)
+  },
+
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
 
   // Header styles
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: 32,
   },
 
   backButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.lightGray,
-    borderRadius: spacing.sm,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', // muted white
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   backButtonText: {
-    color: colors.black,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
+    color: '#111827', // gray-900 (dark text)
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 
   title: {
-    flex: 1,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#111827', // gray-900 (dark text)
     textAlign: 'center',
-    color: colors.black,
-  },
-
-  headerSpacer: {
-    width: 80,
+    fontFamily: 'Inter',
+    marginBottom: 48,
   },
 
   // Timer display styles
@@ -565,31 +588,36 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: spacing.xl,
+    paddingVertical: 32,
   },
 
   timerCircle: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: colors.cream,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: '#FAF7F1', // tan-50 (lightest)
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    ...shadows.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 12,
+    borderWidth: 8,
+    borderColor: '#DABB95', // tan-300 (lighter border)
   },
 
-  progressCircle: {
+  progressRing: {
     position: 'absolute',
-    width: 250,
-    height: 250,
-    borderRadius: 125,
+    width: 296,
+    height: 296,
+    borderRadius: 148,
     borderWidth: 8,
-    borderColor: colors.primary,
-    borderTopColor: colors.secondary,
-    borderRightColor: colors.secondary,
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
+    borderColor: 'transparent',
+    borderTopColor: '#A67C52', // tan-500 (darker tan for progress)
+    top: -16,
+    left: -16,
   },
 
   timerInner: {
@@ -598,81 +626,118 @@ const styles = StyleSheet.create({
   },
 
   timerText: {
-    fontSize: typography.fontSize['5xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.black,
-    fontFamily: 'monospace',
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#111827', // gray-900 (dark text)
+    fontFamily: 'Inter',
+    letterSpacing: 2,
   },
 
   timerLabel: {
-    fontSize: typography.fontSize.base,
-    color: colors.darkGray,
-    marginTop: spacing.sm,
+    fontSize: 16,
+    color: '#A67C52', // tan-500 (primary tan)
+    marginTop: 8,
+    fontFamily: 'Inter',
   },
 
   // Status message styles
   statusContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+    paddingHorizontal: 24,
+    marginBottom: 40,
+    alignItems: 'center',
   },
 
-  statusText: {
-    fontSize: typography.fontSize.base,
-    color: colors.darkGray,
+  statusTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827', // gray-900 (dark text)
     textAlign: 'center',
-    lineHeight: typography.fontSize.base * typography.lineHeight.relaxed,
+    fontFamily: 'Inter',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+
+  statusSubtitle: {
+    fontSize: 16,
+    color: '#A67C52', // tan-500 (primary tan)
+    textAlign: 'center',
+    fontFamily: 'Inter',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+
+  statusNote: {
+    fontSize: 16,
+    color: '#A67C52', // tan-500 (primary tan)
+    textAlign: 'center',
+    fontFamily: 'Inter',
+    lineHeight: 22,
   },
 
   // Button styles
   buttonContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+    paddingHorizontal: 24,
   },
 
   startButton: {
-    backgroundColor: colors.black,
-    paddingVertical: spacing.lg,
-    borderRadius: spacing.md,
+    backgroundColor: '#111827', // gray-900 (dark text)
+    paddingVertical: 18,
+    borderRadius: 50,
     alignItems: 'center',
-    ...shadows.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   startButtonText: {
-    color: colors.white,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 
   stopButton: {
-    backgroundColor: colors.error,
-    paddingVertical: spacing.lg,
-    borderRadius: spacing.md,
+    backgroundColor: '#EF4444', // red-500
+    paddingVertical: 18,
+    borderRadius: 50,
     alignItems: 'center',
-    ...shadows.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   confirmButton: {
-    backgroundColor: colors.warning,
+    backgroundColor: '#F59E0B', // amber-500
   },
 
   stopButtonText: {
-    color: colors.white,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 
   resetButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.lg,
-    borderRadius: spacing.md,
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
+    paddingVertical: 18,
+    borderRadius: 50,
     alignItems: 'center',
-    ...shadows.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   resetButtonText: {
-    color: colors.black,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 
   // Modal styles
@@ -681,81 +746,59 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 24,
   },
 
   modalContent: {
-    backgroundColor: colors.white,
-    borderRadius: spacing.lg,
-    padding: spacing.xl,
+    backgroundColor: '#ffffff', // white
+    borderRadius: 24,
+    padding: 32,
     alignItems: 'center',
     minWidth: 280,
-    ...shadows.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 12,
   },
 
   modalTitle: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.black,
-    marginBottom: spacing.md,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827', // gray-900 (dark text)
+    marginBottom: 16,
     textAlign: 'center',
+    fontFamily: 'Inter',
   },
 
   modalMessage: {
-    fontSize: typography.fontSize.base,
-    color: colors.darkGray,
+    fontSize: 16,
+    color: '#A67C52', // tan-500 (primary tan)
     textAlign: 'center',
-    lineHeight: typography.fontSize.base * typography.lineHeight.relaxed,
-    marginBottom: spacing.xl,
+    lineHeight: 22,
+    marginBottom: 32,
+    fontFamily: 'Inter',
   },
 
   modalButton: {
-    backgroundColor: colors.black,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: spacing.md,
+    backgroundColor: '#111827', // gray-900 (dark text)
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 50,
     minWidth: 120,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   modalButtonText: {
-    color: colors.white,
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
-  },
-
-  blockedAppsContainer: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.cream,
-    borderRadius: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-
-  blockedAppsTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.black,
-    marginBottom: spacing.sm,
-  },
-
-  blockedAppsList: {
-    marginLeft: spacing.sm,
-  },
-
-  blockedAppItem: {
-    fontSize: typography.fontSize.base,
-    color: colors.darkGray,
-    marginVertical: spacing.xs / 2,
-  },
-
-  blockedAppsNote: {
-    fontSize: typography.fontSize.sm,
-    color: colors.darkGray,
-    fontStyle: 'italic',
-    marginTop: spacing.sm,
-    textAlign: 'center',
+    fontFamily: 'Inter',
   },
 });
 

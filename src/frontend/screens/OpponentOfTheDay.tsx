@@ -83,10 +83,10 @@ export const OpponentOfTheDay: React.FC = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={commonStyles.safeArea}>
-        <View style={[commonStyles.centerContent, { flex: 1 }]}>
-          <ActivityIndicator size="large" color={colors.gold} />
-          <Text style={[commonStyles.body, { marginTop: spacing.md, color: colors.darkGray }]}>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2C2C2C" />
+          <Text style={styles.loadingText}>
             Finding your opponent...
           </Text>
         </View>
@@ -96,9 +96,9 @@ export const OpponentOfTheDay: React.FC = () => {
 
   if (!opponent) {
     return (
-      <SafeAreaView style={commonStyles.safeArea}>
-        <View style={[commonStyles.centerContent, { flex: 1 }]}>
-          <Text style={[commonStyles.heading3, { color: colors.darkGray }]}>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>
             No opponent found
           </Text>
         </View>
@@ -107,75 +107,75 @@ export const OpponentOfTheDay: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={commonStyles.safeArea}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[commonStyles.heading3, styles.title]}>
-            Opponent of the Day
-          </Text>
-        </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        {/* Header Title */}
+        <Text style={styles.title}>Opponent of the Day</Text>
         
+        {/* Opponent Card */}
         <View style={styles.opponentCard}>
-          {/* Profile Image */}
+          {/* Avatar */}
           <View style={styles.avatarContainer}>
             {opponent.avatarUrl ? (
               <Image
                 source={{ uri: opponent.avatarUrl }}
-                style={commonStyles.avatar}
+                style={styles.avatar}
               />
             ) : (
-              <View style={commonStyles.avatarPlaceholder}>
-                <Text style={commonStyles.avatarText}>
-                  {opponent.firstName[0]}
-                  {opponent.lastName[0]}
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>
+                  {opponent.firstName[0]?.toUpperCase()}
+                  {opponent.lastName[0]?.toUpperCase()}
                 </Text>
               </View>
             )}
           </View>
 
-          {/* Opponent Info */}
+          {/* Opponent Information */}
           <View style={styles.infoContainer}>
             <View style={styles.infoSection}>
-              <Text style={commonStyles.bodySmall}>Name</Text>
-              <Text style={[commonStyles.bodyLarge, styles.infoText]}>
+              <Text style={styles.infoLabel}>Name</Text>
+              <Text style={styles.infoValue}>
                 {opponent.firstName} {opponent.lastName}
               </Text>
             </View>
 
             <View style={styles.infoSection}>
-              <Text style={commonStyles.bodySmall}>University</Text>
-              <Text style={[commonStyles.body, styles.infoText]}>
+              <Text style={styles.infoLabel}>University</Text>
+              <Text style={styles.infoValue}>
                 {opponent.university || "No info given"}
               </Text>
             </View>
 
             <View style={styles.infoSection}>
-              <Text style={commonStyles.bodySmall}>Major</Text>
-              <Text style={[commonStyles.body, styles.infoText]}>
+              <Text style={styles.infoLabel}>Major</Text>
+              <Text style={styles.infoValue}>
                 {opponent.major || "No info given"}
               </Text>
             </View>
           </View>
+        </View>
 
-          {/* Accept Challenge Button */}
+        {/* Action Buttons */}
+        <View style={styles.buttonContainer}>
+          {/* Accept Button */}
           <TouchableOpacity 
             style={styles.acceptButton}
             onPress={handleAcceptChallenge}
+            activeOpacity={0.8}
           >
-            <Text style={styles.acceptText}>
-              Accept
-            </Text>
+            <Text style={styles.acceptButtonText}>Accept</Text>
           </TouchableOpacity>
 
-          {/* Refresh Button */}
+          {/* Get New Opponent Button */}
           <TouchableOpacity 
             style={styles.refreshButton}
             onPress={handleRefreshOpponent}
             disabled={isRefreshing}
+            activeOpacity={0.8}
           >
-            <Text style={styles.refreshText}>
-              {isRefreshing ? 'Refreshing...' : 'Get New Opponent'}
+            <Text style={styles.refreshButtonText}>
+              {isRefreshing ? 'Getting New Opponent...' : 'Get New Opponent'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -187,76 +187,153 @@ export const OpponentOfTheDay: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
+    backgroundColor: '#E8D5BC', // tan-200 (background)
   },
-  
-  header: {
+
+  content: {
+    flex: 1,
+    paddingHorizontal: 32,
+    paddingTop: 60,
+    paddingBottom: 40,
+    justifyContent: 'space-between',
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.xl,
   },
-  
-  title: {
+
+  loadingText: {
+    fontSize: 16,
+    color: '#A67C52', // tan-500 (primary tan)
+    marginTop: 16,
     textAlign: 'center',
+    fontFamily: 'Inter',
   },
-  
+
+  errorText: {
+    fontSize: 18,
+    color: '#A67C52', // tan-500 (primary tan)
+    textAlign: 'center',
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#111827', // gray-900 (dark text)
+    textAlign: 'center',
+    fontFamily: 'Inter',
+    marginBottom: 0,
+  },
+
   opponentCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    padding: spacing.lg,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  
-  avatarContainer: {
+    backgroundColor: '#ffffff', // white
+    borderRadius: 24,
+    padding: 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    flex: 1,
+    justifyContent: 'center',
+    marginVertical: 40,
   },
-  
+
+  avatarContainer: {
+    marginBottom: 48,
+  },
+
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+
+  avatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  avatarText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    fontFamily: 'Inter',
+  },
+
   infoContainer: {
-    gap: spacing.md,
-    marginBottom: spacing.lg,
+    width: '100%',
+    gap: 32,
   },
-  
+
   infoSection: {
-    marginBottom: spacing.sm,
+    alignItems: 'flex-start',
   },
-  
-  infoText: {
-    color: colors.black,
-    fontWeight: typography.fontWeight.semibold,
+
+  infoLabel: {
+    fontSize: 16,
+    color: '#A67C52', // tan-500 (primary tan)
+    marginBottom: 8,
+    fontWeight: '500',
+    fontFamily: 'Inter',
+  },
+
+  infoValue: {
+    fontSize: 20,
+    color: '#111827', // gray-900 (dark text)
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+
+  buttonContainer: {
+    gap: 16,
   },
 
   acceptButton: {
-    backgroundColor: colors.black,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: spacing.md,
+    backgroundColor: '#111827', // gray-900 (dark text)
+    paddingVertical: 18,
+    borderRadius: 50,
     alignItems: 'center',
-    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
-  acceptText: {
-    color: colors.white,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+  acceptButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 
   refreshButton: {
-    backgroundColor: colors.secondary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: spacing.md,
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
+    paddingVertical: 18,
+    borderRadius: 50,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
-  refreshText: {
-    color: colors.white,
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+  refreshButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 });
 

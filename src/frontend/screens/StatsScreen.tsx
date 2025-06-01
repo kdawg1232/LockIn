@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { colors, commonStyles, spacing, typography, shadows } from '../styles/theme';
 import { getTodaysCoinTransactions } from '../services/timerService';
 import globalTimerService, { OpponentSwitchCallback } from '../services/globalTimerService';
 import supabase from '../../lib/supabase';
@@ -200,82 +199,78 @@ export const StatsScreen: React.FC = () => {
     }
   };
 
-  // Listen for opponent switches
-  useEffect(() => {
-    const opponentSwitchCallback: OpponentSwitchCallback = {
-      onOpponentSwitch: handleOpponentSwitch
-    };
-    
-    const unsubscribe = globalTimerService.addOpponentSwitchListener(opponentSwitchCallback);
-    
-    return () => {
-      unsubscribe();
-    };
-  }, [currentUserId]);
-
-  // Update countdown timer every second using global timer service
+  // Update timer display
   useEffect(() => {
     const updateTimer = () => {
-      setTimeRemaining(globalTimerService.getNextOpponentTimeRemaining());
+      const remainingTime = globalTimerService.getNextOpponentTimeRemaining();
+      setTimeRemaining(remainingTime);
     };
 
     // Update immediately
     updateTimer();
-    
+
     // Set up interval to update every second
     const interval = setInterval(updateTimer, 1000);
-    
-    // Cleanup interval on component unmount
+
     return () => clearInterval(interval);
   }, []);
 
-  // Initial data fetch
+  // Setup opponent switch listener
   useEffect(() => {
-    fetchAllStats();
-  }, [opponentId]);
+    const callback: OpponentSwitchCallback = {
+      onOpponentSwitch: handleOpponentSwitch
+    };
+    
+    globalTimerService.addOpponentSwitchListener(callback);
 
-  // Refresh data when screen comes into focus (e.g., returning from timer)
+    // Note: There's no remove method in the service, so we just add the listener
+    // In a production app, we would implement the remove method
+    return () => {
+      // globalTimerService.removeOpponentSwitchListener(callback);
+    };
+  }, [currentUserId]);
+
+  // Fetch stats when screen comes into focus and when IDs are available
   useFocusEffect(
     React.useCallback(() => {
-      // Only refresh if we have a current user ID (avoid initial double fetch)
-      if (currentUserId) {
-        console.log('📈 StatsScreen focused - refreshing coin data for user:', currentUserId);
+      if (currentUserId && opponentId) {
         fetchAllStats();
-      } else {
-        console.log('📈 StatsScreen focused but no currentUserId yet');
       }
     }, [currentUserId, opponentId])
   );
 
-  // Handle Lock In button press
+  // Handle Lock In button press - navigates to TimerScreen
   const handleLockIn = () => {
-    // Navigate to the TimerDistractionScreen to start the focus session
     (navigation as any).navigate('Timer');
   };
 
-  // Handle back navigation
+  // Handle back button press
   const handleGoBack = () => {
     navigation.goBack();
   };
 
-  // Handle profile navigation
+  // Handle profile button press
   const handleProfilePress = () => {
     (navigation as any).navigate('Profile');
   };
 
-  // Debug function to manually refresh stats
+  // Handle debug refresh button press
   const handleDebugRefresh = async () => {
-    console.log('🔍 Manual debug refresh triggered');
-    console.log('🔍 Current user ID:', currentUserId);
-    console.log('🔍 Opponent ID:', opponentId);
+    console.log('🔍 Debug refresh button pressed');
     
-    if (currentUserId) {
-      console.log('🔍 Manually fetching user stats...');
-      await fetchUserStats(currentUserId);
-      console.log('🔍 Current user stats state:', userStats);
+    if (!currentUserId || !opponentId) {
+      Alert.alert('Debug', 'User IDs not available yet');
+      return;
     }
     
-    Alert.alert('Debug', `User stats: ${userStats.coinsGained} gained, ${userStats.netCoins} net`);
+    Alert.alert(
+      'Debug Refresh', 
+      `Refreshing stats for:\nUser: ${currentUserId}\nOpponent: ${opponentId}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Refresh', onPress: fetchAllStats }
+      ]
+    );
   };
 
   // Render individual stats card for user or opponent
@@ -294,13 +289,13 @@ export const StatsScreen: React.FC = () => {
 
     return (
       <TouchableOpacity 
-        style={[styles.statsCard, isUser ? styles.userCard : styles.opponentCard]}
+        style={styles.statsCard}
         onPress={handleCardPress}
         activeOpacity={0.7}
       >
-        {/* Card header with user name */}
+        {/* Card header with user name and badge */}
         <View style={styles.cardHeader}>
-          <Text style={[commonStyles.heading3, styles.cardTitle]}>
+          <Text style={styles.cardTitle}>
             {user.name}
           </Text>
           {isUser && (
@@ -315,7 +310,7 @@ export const StatsScreen: React.FC = () => {
           {/* Coins Gained */}
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Coins Gained</Text>
-            <Text style={[styles.statValue, styles.gainedValue]}>
+            <Text style={styles.gainedValue}>
               +{user.stats.coinsGained}
             </Text>
           </View>
@@ -323,44 +318,70 @@ export const StatsScreen: React.FC = () => {
           {/* Coins Lost */}
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Coins Lost</Text>
-            <Text style={[styles.statValue, styles.lostValue]}>
+            <Text style={styles.lostValue}>
               -{user.stats.coinsLost}
             </Text>
           </View>
 
+          {/* Divider */}
+          <View style={styles.divider} />
+
           {/* Net Coins */}
-          <View style={[styles.statItem, styles.netCoinsItem]}>
-            <Text style={styles.statLabel}>Net Coins</Text>
-            <Text style={[styles.statValue, styles.netValue, user.stats.netCoins >= 0 ? styles.positiveNet : styles.negativeNet]}>
+          <View style={styles.statItem}>
+            <Text style={styles.netLabel}>Net Coins</Text>
+            <Text style={[styles.netValue, user.stats.netCoins >= 0 ? styles.positiveNet : styles.negativeNet]}>
               {user.stats.netCoins >= 0 ? '+' : ''}{user.stats.netCoins}
             </Text>
           </View>
+
+          {/* Show countdown timer for opponent card */}
+          {!isUser && (
+            <>
+              <View style={styles.countdownSection}>
+                <Text style={styles.countdownLabel}>New opponent in:</Text>
+                <Text style={styles.countdownTime}>{timeRemaining}</Text>
+              </View>
+            </>
+          )}
         </View>
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={commonStyles.safeArea}>
-      <View style={styles.container}>
-        {/* Header with back button */}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        {/* Header with back and profile buttons */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={handleGoBack}
+            activeOpacity={0.8}
+          >
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
-          <View style={styles.titleContainer}>
-            <Text style={[commonStyles.heading3, styles.title]}>
-              Daily Challenge
-            </Text>
-            {lastUpdated && (
-              <Text style={styles.lastUpdatedText}>
-                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            )}
-          </View>
-          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
+          
+          <TouchableOpacity 
+            style={styles.profileButton} 
+            onPress={handleProfilePress}
+            activeOpacity={0.8}
+          >
             <Text style={styles.profileButtonText}>Profile</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Title and updated time */}
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>Daily Challenge</Text>
+          {lastUpdated && (
+            <Text style={styles.updatedText}>
+              Updated {lastUpdated.toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+              })}
+            </Text>
+          )}
         </View>
 
         {isLoading ? (
@@ -369,7 +390,7 @@ export const StatsScreen: React.FC = () => {
             <Text style={styles.loadingText}>Loading coin data...</Text>
           </View>
         ) : (
-          <>
+          <View style={styles.statsSection}>
             {/* User stats card */}
             {renderStatsCard(userData, true)}
 
@@ -378,27 +399,22 @@ export const StatsScreen: React.FC = () => {
               <Text style={styles.vsText}>VS</Text>
             </View>
 
-            {/* Opponent stats card */}
+            {/* Opponent stats card (includes countdown timer) */}
             {renderStatsCard(opponentData, false)}
 
-            {/* Lock In button */}
-            <TouchableOpacity style={styles.lockInButton} onPress={handleLockIn}>
-              <Text style={styles.lockInButtonText}>Lock In</Text>
-            </TouchableOpacity>
-
-            {/* Debug refresh button */}
-            <TouchableOpacity style={styles.debugButton} onPress={handleDebugRefresh}>
-              <Text style={styles.debugButtonText}>🔍 Debug Refresh Stats</Text>
-            </TouchableOpacity>
-          </>
+            {/* Action buttons */}
+            <View style={styles.buttonContainer}>
+              {/* Lock In button */}
+              <TouchableOpacity 
+                style={styles.lockInButton} 
+                onPress={handleLockIn}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.lockInButtonText}>Lock In</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
-
-        {/* Countdown timer - always visible */}
-        <View style={styles.countdownContainer}>
-          <Text style={styles.countdownLabel}>New opponent in:</Text>
-          <Text style={styles.countdownTime}>{timeRemaining}</Text>
-          <Text style={styles.mvpNote}>MVP: 20min cycle for testing</Text>
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -407,8 +423,14 @@ export const StatsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    backgroundColor: '#E8D5BC', // tan-200 (background)
+  },
+
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
 
   // Header styles
@@ -416,189 +438,227 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: 24,
   },
 
   backButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.lightGray,
-    borderRadius: spacing.sm,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', // more muted white
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   backButtonText: {
-    color: colors.black,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
+    color: '#111827', // gray-900 (dark text)
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 
+  profileButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', // more muted white
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  profileButtonText: {
+    color: '#111827', // gray-900 (dark text)
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+
+  // Title section
   titleContainer: {
-    flex: 1,
     alignItems: 'center',
+    marginBottom: 24,
   },
 
   title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#111827', // gray-900 (dark text)
     textAlign: 'center',
-    color: colors.black,
+    fontFamily: 'Inter',
+    marginBottom: 6,
   },
 
-  lastUpdatedText: {
-    color: colors.darkGray,
-    fontSize: typography.fontSize.xs,
-    marginTop: spacing.xs,
+  updatedText: {
+    fontSize: 14,
+    color: '#A67C52', // tan-500 (primary tan)
+    fontFamily: 'Inter',
   },
 
-  headerSpacer: {
-    width: spacing.md,
+  // Stats section
+  statsSection: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
 
   // Stats card styles
   statsCard: {
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadows.md,
-  },
-
-  userCard: {
-    backgroundColor: colors.primary, // Primary gold color for user
-  },
-
-  opponentCard: {
-    backgroundColor: colors.white, // White background for opponent
-    borderWidth: 2,
-    borderColor: colors.secondary, // Secondary brown border
+    backgroundColor: '#ffffff', // white
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
   },
 
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 16,
   },
 
   cardTitle: {
-    color: colors.black,
-    fontWeight: typography.fontWeight.bold,
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#111827', // gray-900 (dark text)
+    fontFamily: 'Inter',
   },
 
   userBadge: {
-    backgroundColor: colors.secondary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: spacing.sm,
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
   },
 
   userBadgeText: {
-    color: colors.white,
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: 'bold',
+    fontFamily: 'Inter',
   },
 
   // Stats container and items
   statsContainer: {
-    gap: spacing.sm,
+    gap: 12,
   },
 
   statItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-
-  netCoinsItem: {
-    borderTopWidth: 1,
-    borderTopColor: colors.lightGray,
-    paddingTop: spacing.sm,
   },
 
   statLabel: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.darkGray,
-  },
-
-  statValue: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    fontSize: 15,
+    color: '#A67C52', // tan-500 (primary tan)
+    fontFamily: 'Inter',
   },
 
   gainedValue: {
-    color: colors.success, // Green for gained coins
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#10B981', // green-500
+    fontFamily: 'Inter',
   },
 
   lostValue: {
-    color: colors.error, // Red for lost coins
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#EF4444', // red-500
+    fontFamily: 'Inter',
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB', // gray-200
+    marginVertical: 6,
+  },
+
+  netLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827', // gray-900 (dark text)
+    fontFamily: 'Inter',
   },
 
   netValue: {
-    fontSize: typography.fontSize.xl,
+    fontSize: 20,
+    fontWeight: 'bold',
+    fontFamily: 'Inter',
   },
 
   positiveNet: {
-    color: colors.success, // Green for positive net
+    color: '#10B981', // green-500
   },
 
   negativeNet: {
-    color: colors.error, // Red for negative net
+    color: '#EF4444', // red-500
   },
 
   // VS indicator styles
   vsContainer: {
     alignItems: 'center',
-    marginVertical: spacing.xs,
+    marginVertical: 12,
   },
 
   vsText: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.secondary,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#A67C52', // tan-500 (primary tan)
+    fontFamily: 'Inter',
   },
 
-  // Lock In button styles
+  // Button styles
   lockInButton: {
-    backgroundColor: colors.black,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: spacing.md,
+    backgroundColor: '#111827', // gray-900 (dark text)
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 50,
     alignItems: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-    ...shadows.md,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   lockInButtonText: {
-    color: colors.white,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 
   // Countdown timer styles
-  countdownContainer: {
+  countdownSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.cream,
-    borderRadius: spacing.md,
   },
 
   countdownLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.darkGray,
-    marginBottom: spacing.xs,
+    fontSize: 14,
+    color: '#A67C52', // tan-500 (primary tan)
+    fontFamily: 'Inter',
   },
 
   countdownTime: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.secondary,
-    fontFamily: 'monospace', // Use monospace for consistent digit spacing
-  },
-
-  mvpNote: {
-    fontSize: typography.fontSize.xs,
-    color: colors.darkGray,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827', // gray-900 (dark text)
+    fontFamily: 'Inter',
+    letterSpacing: 1,
   },
 
   // Loading state styles
@@ -609,41 +669,15 @@ const styles = StyleSheet.create({
   },
 
   loadingText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.darkGray,
+    fontSize: 18,
+    color: '#A67C52', // tan-500 (primary tan)
+    fontFamily: 'Inter',
   },
 
-  // Debug button styles
-  debugButton: {
-    backgroundColor: colors.secondary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: spacing.md,
+  // New button container styles
+  buttonContainer: {
     alignItems: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-    ...shadows.md,
-  },
-
-  debugButtonText: {
-    color: colors.white,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-  },
-
-  // Profile button styles
-  profileButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.lightGray,
-    borderRadius: spacing.sm,
-  },
-
-  profileButtonText: {
-    color: colors.black,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
+    marginTop: 16,
   },
 });
 

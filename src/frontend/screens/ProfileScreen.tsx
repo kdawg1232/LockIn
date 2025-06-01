@@ -2,7 +2,6 @@ import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { colors, commonStyles, spacing, typography, shadows } from '../styles/theme';
 import supabase from '../../lib/supabase';
 import { SessionContext } from '../navigation/RootNavigator';
 
@@ -163,22 +162,23 @@ export const ProfileScreen: React.FC = () => {
     );
   };
 
+  // Handle cancel editing
+  const handleCancelEdit = () => {
+    // Reset edit form to original values
+    if (userProfile) {
+      setEditForm({
+        firstName: userProfile.firstName,
+        lastName: userProfile.lastName,
+        university: userProfile.university,
+        major: userProfile.major
+      });
+    }
+    setIsEditing(false);
+  };
+
   // Handle back navigation
   const handleGoBack = () => {
-    if (isEditing) {
-      // Reset edit form to original values
-      if (userProfile) {
-        setEditForm({
-          firstName: userProfile.firstName,
-          lastName: userProfile.lastName,
-          university: userProfile.university,
-          major: userProfile.major
-        });
-      }
-      setIsEditing(false);
-    } else {
-      navigation.goBack();
-    }
+    navigation.goBack();
   };
 
   // Initialize profile data on component mount
@@ -189,10 +189,10 @@ export const ProfileScreen: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={commonStyles.safeArea}>
-        <View style={[commonStyles.centerContent, { flex: 1 }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[commonStyles.body, { marginTop: spacing.md, color: colors.darkGray }]}>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#A67C52" />
+          <Text style={styles.loadingText}>
             Loading profile...
           </Text>
         </View>
@@ -203,16 +203,17 @@ export const ProfileScreen: React.FC = () => {
   // Error state - no profile data
   if (!userProfile) {
     return (
-      <SafeAreaView style={commonStyles.safeArea}>
-        <View style={[commonStyles.centerContent, { flex: 1 }]}>
-          <Text style={[commonStyles.heading3, { color: colors.darkGray }]}>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>
             Failed to load profile
           </Text>
           <TouchableOpacity 
-            style={[commonStyles.primaryButton, { marginTop: spacing.md }]}
+            style={styles.retryButton}
             onPress={fetchUserProfile}
+            activeOpacity={0.8}
           >
-            <Text style={[commonStyles.bodyLarge, { color: colors.white }]}>
+            <Text style={styles.retryButtonText}>
               Retry
             </Text>
           </TouchableOpacity>
@@ -222,26 +223,25 @@ export const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={commonStyles.safeArea}>
+    <SafeAreaView style={styles.container}>
       <ScrollView 
-        style={styles.container} 
+        style={styles.content} 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
+        {/* Back Button */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-            <Text style={styles.backButtonText}>
-              {isEditing ? '← Cancel' : '← Back'}
-            </Text>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={handleGoBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
-          <View style={styles.titleContainer}>
-            <Text style={[commonStyles.heading3, styles.title]}>
-              {isEditing ? 'Edit Profile' : 'Profile'}
-            </Text>
-          </View>
-          <View style={styles.headerSpacer} />
         </View>
+
+        {/* Title */}
+        <Text style={styles.title}>Profile</Text>
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
@@ -255,8 +255,8 @@ export const ProfileScreen: React.FC = () => {
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarText}>
-                  {userProfile.firstName[0] || '?'}
-                  {userProfile.lastName[0] || '?'}
+                  {(userProfile.firstName[0] || '').toUpperCase()}
+                  {(userProfile.lastName[0] || '').toUpperCase()}
                 </Text>
               </View>
             )}
@@ -268,46 +268,50 @@ export const ProfileScreen: React.FC = () => {
             <View style={styles.infoSection}>
               <Text style={styles.infoLabel}>Name</Text>
               {isEditing ? (
-                <View style={styles.nameEditContainer}>
-                  <TextInput
-                    style={[styles.textInput, styles.nameInput]}
-                    value={editForm.firstName}
-                    onChangeText={(text) => setEditForm({...editForm, firstName: text})}
-                    placeholder="First Name"
-                    placeholderTextColor={colors.mediumGray}
-                  />
-                  <TextInput
-                    style={[styles.textInput, styles.nameInput]}
-                    value={editForm.lastName}
-                    onChangeText={(text) => setEditForm({...editForm, lastName: text})}
-                    placeholder="Last Name"
-                    placeholderTextColor={colors.mediumGray}
-                  />
-                </View>
+                <TextInput
+                  style={styles.textInput}
+                  value={`${editForm.firstName} ${editForm.lastName}`}
+                  onChangeText={(text) => {
+                    const names = text.split(' ');
+                    setEditForm({
+                      ...editForm, 
+                      firstName: names[0] || '',
+                      lastName: names.slice(1).join(' ') || ''
+                    });
+                  }}
+                  placeholder="Full Name"
+                  placeholderTextColor="#9B8B73"
+                />
               ) : (
-                <Text style={styles.infoText}>
-                  {userProfile.firstName} {userProfile.lastName}
-                </Text>
+                <View style={styles.infoField}>
+                  <Text style={styles.infoText}>
+                    {userProfile.firstName} {userProfile.lastName}
+                  </Text>
+                </View>
               )}
             </View>
 
-            {/* Email (non-editable) */}
+            {/* Email */}
             <View style={styles.infoSection}>
               <Text style={styles.infoLabel}>Email</Text>
-              <Text style={[styles.infoText, styles.nonEditableText]}>
-                {userProfile.email}
-              </Text>
+              <View style={[styles.infoField, styles.nonEditableField]}>
+                <Text style={[styles.infoText, styles.nonEditableText]}>
+                  {userProfile.email}
+                </Text>
+              </View>
             </View>
 
-            {/* Username (non-editable) */}
+            {/* Username */}
             <View style={styles.infoSection}>
               <Text style={styles.infoLabel}>Username</Text>
-              <Text style={[styles.infoText, styles.nonEditableText]}>
-                {userProfile.username}
-              </Text>
+              <View style={[styles.infoField, styles.nonEditableField]}>
+                <Text style={[styles.infoText, styles.nonEditableText]}>
+                  {userProfile.username}
+                </Text>
+              </View>
             </View>
 
-            {/* University/School */}
+            {/* School */}
             <View style={styles.infoSection}>
               <Text style={styles.infoLabel}>School</Text>
               {isEditing ? (
@@ -316,12 +320,14 @@ export const ProfileScreen: React.FC = () => {
                   value={editForm.university}
                   onChangeText={(text) => setEditForm({...editForm, university: text})}
                   placeholder="Enter your school/university"
-                  placeholderTextColor={colors.mediumGray}
+                  placeholderTextColor="#9B8B73"
                 />
               ) : (
-                <Text style={styles.infoText}>
-                  {userProfile.university || 'Not specified'}
-                </Text>
+                <View style={styles.infoField}>
+                  <Text style={styles.infoText}>
+                    {userProfile.university || 'Not specified'}
+                  </Text>
+                </View>
               )}
             </View>
 
@@ -334,53 +340,68 @@ export const ProfileScreen: React.FC = () => {
                   value={editForm.major}
                   onChangeText={(text) => setEditForm({...editForm, major: text})}
                   placeholder="Enter your major"
-                  placeholderTextColor={colors.mediumGray}
+                  placeholderTextColor="#9B8B73"
                 />
               ) : (
-                <Text style={styles.infoText}>
-                  {userProfile.major || 'Not specified'}
-                </Text>
+                <View style={styles.infoField}>
+                  <Text style={styles.infoText}>
+                    {userProfile.major || 'Not specified'}
+                  </Text>
+                </View>
               )}
             </View>
           </View>
+        </View>
 
-          {/* Action Buttons */}
-          {isEditing ? (
-            <View style={styles.editButtonContainer}>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.saveButton]}
-                onPress={handleSaveProfile}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : (
+        {/* Action Buttons */}
+        {isEditing ? (
+          <View style={styles.editButtonContainer}>
+            {/* Save Changes Button */}
             <TouchableOpacity 
-              style={[styles.actionButton, styles.editButton]}
+              style={styles.saveButton}
+              onPress={handleSaveProfile}
+              disabled={isSaving}
+              activeOpacity={0.8}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Cancel Button */}
+            <TouchableOpacity 
+              style={styles.cancelButton}
+              onPress={handleCancelEdit}
+              disabled={isSaving}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.viewButtonContainer}>
+            {/* Edit Profile Button */}
+            <TouchableOpacity 
+              style={styles.editButton}
               onPress={() => setIsEditing(true)}
+              activeOpacity={0.8}
             >
               <Text style={styles.editButtonText}>Edit Profile</Text>
             </TouchableOpacity>
-          )}
-        </View>
 
-        {/* Logout Button (only shown when not editing) */}
-        {!isEditing && (
-          <View style={styles.logoutContainer}>
+            {/* Logout Button */}
             <TouchableOpacity 
               style={styles.logoutButton}
               onPress={handleLogout}
               disabled={isLoggingOut}
+              activeOpacity={0.8}
             >
               {isLoggingOut ? (
                 <View style={styles.logoutLoading}>
-                  <ActivityIndicator size="small" color={colors.white} />
-                  <Text style={[styles.logoutButtonText, { marginLeft: spacing.sm }]}>
+                  <ActivityIndicator size="small" color="#ffffff" />
+                  <Text style={[styles.logoutButtonText, { marginLeft: 8 }]}>
                     Logging out...
                   </Text>
                 </View>
@@ -398,196 +419,282 @@ export const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+    backgroundColor: '#E8D5BC', // tan-200 (background)
+  },
+
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
   },
 
   scrollContent: {
-    paddingBottom: spacing.xl,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
 
-  // Header styles
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-
-  backButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.lightGray,
-    borderRadius: spacing.sm,
-  },
-
-  backButtonText: {
-    color: colors.black,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-  },
-
-  titleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-
+  // Title
   title: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#111827', // gray-900 (dark text)
     textAlign: 'center',
-    color: colors.black,
-  },
-
-  headerSpacer: {
-    width: spacing.md,
+    fontFamily: 'Inter',
+    marginBottom: 20,
   },
 
   // Profile card styles
   profileCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadows.md,
+    backgroundColor: '#ffffff', // white
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
   },
 
   // Avatar styles
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
 
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.lightGray,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#F3F4F6', // gray-100
   },
 
   avatarPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.secondary,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   avatarText: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.white,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    fontFamily: 'Inter',
   },
 
   // Info container styles
   infoContainer: {
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    gap: 12,
   },
 
   infoSection: {
-    marginBottom: spacing.xs,
+    marginBottom: 0,
   },
 
   infoLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.darkGray,
-    marginBottom: spacing.xs / 2,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#A67C52', // tan-500 (primary tan)
+    marginBottom: 4,
+    fontFamily: 'Inter',
+  },
+
+  infoField: {
+    backgroundColor: '#FAF7F1', // tan-50 (lightest)
+    borderWidth: 1,
+    borderColor: '#DABB95', // tan-300
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+
+  nonEditableField: {
+    backgroundColor: '#F9FAFB', // gray-50
+    borderColor: '#E5E7EB', // gray-200
   },
 
   infoText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.black,
-    backgroundColor: colors.white,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: spacing.sm,
+    fontSize: 14,
+    color: '#111827', // gray-900 (dark text)
+    fontFamily: 'Inter',
   },
 
   nonEditableText: {
-    backgroundColor: colors.cream,
-    color: colors.darkGray,
+    color: '#6B7280', // gray-500
   },
 
   // Text input styles for editing
   textInput: {
-    fontSize: typography.fontSize.base,
-    color: colors.black,
-    backgroundColor: colors.white,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: spacing.sm,
+    fontSize: 14,
+    color: '#111827', // gray-900 (dark text)
+    backgroundColor: '#FAF7F1', // tan-50 (lightest)
     borderWidth: 1,
-    borderColor: colors.lightGray,
+    borderColor: '#DABB95', // tan-300
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontFamily: 'Inter',
   },
 
-  nameEditContainer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-
-  nameInput: {
-    flex: 1,
-  },
-
-  // Action button styles
-  actionButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: spacing.md,
-    alignItems: 'center',
-    ...shadows.md,
-  },
-
-  editButton: {
-    backgroundColor: colors.secondary,
-  },
-
-  editButtonText: {
-    color: colors.white,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+  // Button container styles
+  viewButtonContainer: {
+    gap: 10,
   },
 
   editButtonContainer: {
-    gap: spacing.md,
+    gap: 10,
   },
 
+  // Edit Profile button (tan)
+  editButton: {
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
+    paddingVertical: 12,
+    borderRadius: 50,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  editButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+
+  // Save Changes button (dark)
   saveButton: {
-    backgroundColor: colors.black,
+    backgroundColor: '#111827', // gray-900 (dark text)
+    paddingVertical: 12,
+    borderRadius: 50,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   saveButtonText: {
-    color: colors.white,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 
-  // Logout button styles
-  logoutContainer: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-
-  logoutButton: {
-    backgroundColor: colors.error,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: spacing.md,
+  // Cancel button (tan outline)
+  cancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#A67C52', // tan-500 (primary tan)
+    paddingVertical: 10,
+    borderRadius: 50,
     alignItems: 'center',
-    ...shadows.md,
+  },
+
+  cancelButtonText: {
+    color: '#A67C52', // tan-500 (primary tan)
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+
+  // Logout button (red)
+  logoutButton: {
+    backgroundColor: '#EF4444', // red-500
+    paddingVertical: 12,
+    borderRadius: 50,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   logoutButtonText: {
-    color: colors.white,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 
   logoutLoading: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+
+  // Loading and error states
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    fontSize: 18,
+    color: '#A67C52', // tan-500 (primary tan)
+    marginTop: 16,
+    fontFamily: 'Inter',
+  },
+
+  errorText: {
+    fontSize: 20,
+    color: '#A67C52', // tan-500 (primary tan)
+    fontWeight: '600',
+    marginBottom: 24,
+    fontFamily: 'Inter',
+  },
+
+  retryButton: {
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+
+  // Back button styles - consistent with other screens
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', // muted white background
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  backButtonText: {
+    color: '#111827', // gray-900 (dark text)
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 });
 
