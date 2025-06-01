@@ -17,10 +17,29 @@ export const AuthNavigator = () => {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: '#cfb991' },
+        animation: 'slide_from_right',
+        animationDuration: 300,
+        animationTypeForReplace: 'push',
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
       }}
     >
-      <Stack.Screen name="SignIn" component={SignInScreen} />
-      <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen 
+        name="SignIn" 
+        component={SignInScreen}
+        options={{
+          animation: 'fade',
+          animationDuration: 250,
+        }}
+      />
+      <Stack.Screen 
+        name="SignUp" 
+        component={SignUpScreen}
+        options={{
+          animation: 'slide_from_right',
+          animationDuration: 300,
+        }}
+      />
     </Stack.Navigator>
   );
 }; 

@@ -6,6 +6,7 @@ import supabase from '../../lib/supabase';
 import navigationService from '../services/navigationService';
 import globalTimerService from '../services/globalTimerService';
 import appBlockerService from '../services/appBlockerService';
+import { IntroScreen } from '../screens/IntroScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { CreateProfileScreen } from '../screens/CreateProfileScreen';
 import { OpponentOfTheDay } from '../screens/OpponentOfTheDay';
@@ -16,7 +17,8 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { View, Text } from 'react-native';
 
 type RootStackParamList = {
-  Auth: undefined;
+  Intro: undefined;
+  Auth: { screen?: string } | undefined;
   CreateProfile: undefined;
   OpponentOfTheDay: undefined;
   Stats: {
@@ -166,7 +168,7 @@ export const RootNavigator = () => {
   console.log('🔍 - isLoading:', isLoading);
 
   if (!session) {
-    console.log('🔍 Rendering: Auth Navigator (no session)');
+    console.log('🔍 Rendering: Intro Screen (no session)');
   } else if (!hasProfile) {
     console.log('🔍 Rendering: CreateProfile Screen (session exists, no profile)');
   } else {
@@ -180,19 +182,96 @@ export const RootNavigator = () => {
         onReady={onNavigationReady}
         onStateChange={handleNavigationStateChange}
       >
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator 
+          screenOptions={{ 
+            headerShown: false,
+            // Add smooth transition animations
+            animation: 'slide_from_right',
+            animationDuration: 300,
+            animationTypeForReplace: 'push',
+            gestureEnabled: true,
+            gestureDirection: 'horizontal',
+          }}
+        >
           {!session ? (
-            <Stack.Screen name="Auth" component={AuthNavigator} />
+            <>
+              <Stack.Screen 
+                name="Intro" 
+                component={IntroScreen}
+                options={{
+                  animation: 'fade',
+                  animationDuration: 250,
+                }}
+              />
+              <Stack.Screen 
+                name="Auth" 
+                component={AuthNavigator}
+                options={{
+                  animation: 'slide_from_right',
+                  animationDuration: 300,
+                }}
+              />
+            </>
           ) : !hasProfile ? (
-            <Stack.Screen name="CreateProfile" component={CreateProfileScreen} />
+            <Stack.Screen 
+              name="CreateProfile" 
+              component={CreateProfileScreen}
+              options={{
+                animation: 'slide_from_bottom',
+                animationDuration: 350,
+              }}
+            />
           ) : (
             <>
-              <Stack.Screen name="OpponentOfTheDay" component={OpponentOfTheDay} />
-              <Stack.Screen name="Stats" component={StatsScreen} />
-              <Stack.Screen name="UserStats" component={UserStatsScreen} />
-              <Stack.Screen name="OpponentStats" component={UserStatsScreen} />
-              <Stack.Screen name="Timer" component={TimerDistractionScreen} />
-              <Stack.Screen name="Profile" component={ProfileScreen} />
+              <Stack.Screen 
+                name="OpponentOfTheDay" 
+                component={OpponentOfTheDay}
+                options={{
+                  animation: 'fade',
+                  animationDuration: 250,
+                }}
+              />
+              <Stack.Screen 
+                name="Stats" 
+                component={StatsScreen}
+                options={{
+                  animation: 'slide_from_right',
+                  animationDuration: 300,
+                }}
+              />
+              <Stack.Screen 
+                name="UserStats" 
+                component={UserStatsScreen}
+                options={{
+                  animation: 'slide_from_right',
+                  animationDuration: 300,
+                }}
+              />
+              <Stack.Screen 
+                name="OpponentStats" 
+                component={UserStatsScreen}
+                options={{
+                  animation: 'slide_from_right',
+                  animationDuration: 300,
+                }}
+              />
+              <Stack.Screen 
+                name="Timer" 
+                component={TimerDistractionScreen}
+                options={{
+                  animation: 'slide_from_bottom',
+                  animationDuration: 350,
+                  gestureEnabled: false, // Disable swipe gesture for timer screen
+                }}
+              />
+              <Stack.Screen 
+                name="Profile" 
+                component={ProfileScreen}
+                options={{
+                  animation: 'slide_from_right',
+                  animationDuration: 300,
+                }}
+              />
             </>
           )}
         </Stack.Navigator>
