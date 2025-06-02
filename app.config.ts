@@ -1,6 +1,7 @@
-import { ExpoConfig } from 'expo/config';
+import { ConfigContext, ExpoConfig } from 'expo/config';
 
-const config: ExpoConfig = {
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
   name: 'LockIn',
   slug: 'lockin',
   version: '1.0.0',
@@ -11,9 +12,14 @@ const config: ExpoConfig = {
     "expo-secure-store"
   ],
   scheme: 'lockin',
+  extra: {
+    eas: {
+      projectId: "6da8d060-89f0-4ad4-8cf1-0dc8505b6c75"
+    }
+  },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.lockin.app',
+    bundleIdentifier: 'com.karthikdigavalli.lockin',
     associatedDomains: [
       'applinks:lockin.app'
     ],
@@ -22,7 +28,7 @@ const config: ExpoConfig = {
     adaptiveIcon: {
       backgroundColor: '#ffffff',
     },
-    package: 'com.lockin.app',
+    package: 'com.karthikdigavalli.lockin',
     intentFilters: [
       {
         action: 'VIEW',
@@ -39,6 +45,4 @@ const config: ExpoConfig = {
   web: {
     favicon: undefined,
   },
-};
-
-export default config; 
+}); 
