@@ -23,6 +23,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     associatedDomains: [
       'applinks:lockin.app'
     ],
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false
+    },
   },
   android: {
     adaptiveIcon: {

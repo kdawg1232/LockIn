@@ -139,27 +139,6 @@ export const TimerDistractionScreen: React.FC = () => {
         return;
       }
 
-      // On iOS, ensure we have Screen Time authorization
-      if (Platform.OS === 'ios' && !isAuthorized) {
-        const authorized = await requestAuthorization();
-        if (!authorized) {
-          Alert.alert(
-            'Screen Time Access Required',
-            'To block distracting apps during focus sessions, please grant Screen Time access.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { 
-                text: 'Open Settings',
-                onPress: () => {
-                  // This will be implemented in Swift to open Settings
-                }
-              }
-            ]
-          );
-          return;
-        }
-      }
-
       // Create focus session in database
       const sessionResult = await startFocusSession(user.id, 1);
       if (sessionResult.error || !sessionResult.data) {
@@ -179,7 +158,7 @@ export const TimerDistractionScreen: React.FC = () => {
         COINS_REWARD
       );
       
-      // Start app blocking
+      // Start app blocking (this is now just a state update)
       await startBlocking();
       
       // Start local countdown interval
@@ -456,7 +435,7 @@ export const TimerDistractionScreen: React.FC = () => {
                 You'll earn {COINS_REWARD} coins upon completion.
               </Text>
               <Text style={styles.statusNote}>
-                Tap Start to enable app blocking.
+                Testing mode: App blocking is simulated.
               </Text>
             </>
           )}
@@ -464,7 +443,7 @@ export const TimerDistractionScreen: React.FC = () => {
           {timerState === TimerState.RUNNING && (
             <>
               <Text style={styles.statusTitle}>
-                Stay focused! Apps are blocked.
+                Stay focused! Testing mode active.
               </Text>
               <Text style={styles.statusSubtitle}>
                 You'll earn {COINS_REWARD} coins when you complete this session.

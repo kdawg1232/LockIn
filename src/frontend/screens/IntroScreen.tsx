@@ -2,6 +2,32 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
+// Logo component with grid design
+const GridLogo: React.FC = () => {
+  return (
+    <View style={styles.gridContainer}>
+      {/* Row 1 */}
+      <View style={styles.gridRow}>
+        <View style={[styles.gridSquare, styles.gridDark]} />
+        <View style={[styles.gridSquare, styles.gridTan]} />
+        <View style={[styles.gridSquare, styles.gridDark]} />
+      </View>
+      {/* Row 2 */}
+      <View style={styles.gridRow}>
+        <View style={[styles.gridSquare, styles.gridDark]} />
+        <View style={[styles.gridSquare, styles.gridTan]} />
+        <View style={[styles.gridSquare, styles.gridTan]} />
+      </View>
+      {/* Row 3 */}
+      <View style={styles.gridRow}>
+        <View style={[styles.gridSquare, styles.gridDark]} />
+        <View style={[styles.gridSquare, styles.gridDark]} />
+        <View style={[styles.gridSquare, styles.gridDark]} />
+      </View>
+    </View>
+  );
+};
+
 export const IntroScreen: React.FC = () => {
   const navigation = useNavigation<any>();
 
@@ -21,7 +47,7 @@ export const IntroScreen: React.FC = () => {
         {/* Logo and Branding */}
         <View style={styles.brandingContainer}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>LI</Text>
+            <GridLogo />
           </View>
           <Text style={styles.appTitle}>Locked In</Text>
           <Text style={styles.tagline}>Focus. Compete. Achieve.</Text>
@@ -34,6 +60,14 @@ export const IntroScreen: React.FC = () => {
             <Text style={styles.featureTitle}>Challenge Friends</Text>
             <Text style={styles.featureDescription}>
               Compete with classmates in daily focus challenges
+            </Text>
+          </View>
+
+          {/* Earn Rewards Card */}
+          <View style={styles.featureCard}>
+            <Text style={styles.featureTitle}>Earn Rewards</Text>
+            <Text style={styles.featureDescription}>
+              Unlock achievements and climb leaderboards as you stay focused
             </Text>
           </View>
 
@@ -99,8 +133,8 @@ const styles = StyleSheet.create({
   logoContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: '#A67C52', // tan-500 (primary tan)
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)', // Semi-transparent white
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -109,13 +143,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 8,
+    padding: 8,
   },
 
-  logoText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    fontFamily: 'Inter',
+  // Grid logo styles
+  gridContainer: {
+    width: 48,
+    height: 48,
+    gap: 2,
+  },
+
+  gridRow: {
+    flexDirection: 'row',
+    gap: 2,
+    flex: 1,
+  },
+
+  gridSquare: {
+    flex: 1,
+    borderRadius: 4,
+  },
+
+  gridDark: {
+    backgroundColor: '#4B5563', // gray-600
+  },
+
+  gridTan: {
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
   },
 
   appTitle: {

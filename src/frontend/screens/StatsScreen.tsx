@@ -6,6 +6,32 @@ import { getTodaysCoinTransactions } from '../services/timerService';
 import globalTimerService, { OpponentSwitchCallback } from '../services/globalTimerService';
 import supabase from '../../lib/supabase';
 
+// Logo component with grid design
+const GridLogo: React.FC = () => {
+  return (
+    <View style={styles.gridContainer}>
+      {/* Row 1 */}
+      <View style={styles.gridRow}>
+        <View style={[styles.gridSquare, styles.gridDark]} />
+        <View style={[styles.gridSquare, styles.gridTan]} />
+        <View style={[styles.gridSquare, styles.gridDark]} />
+      </View>
+      {/* Row 2 */}
+      <View style={styles.gridRow}>
+        <View style={[styles.gridSquare, styles.gridDark]} />
+        <View style={[styles.gridSquare, styles.gridTan]} />
+        <View style={[styles.gridSquare, styles.gridTan]} />
+      </View>
+      {/* Row 3 */}
+      <View style={styles.gridRow}>
+        <View style={[styles.gridSquare, styles.gridDark]} />
+        <View style={[styles.gridSquare, styles.gridDark]} />
+        <View style={[styles.gridSquare, styles.gridDark]} />
+      </View>
+    </View>
+  );
+};
+
 // Interface for daily stats data
 interface StatsData {
   coinsGained: number;
@@ -36,7 +62,6 @@ export const StatsScreen: React.FC = () => {
   
   // State for user stats and UI
   const [currentUserId, setCurrentUserId] = useState<string>('');
-  const [timeRemaining, setTimeRemaining] = useState<string>('00:20:00');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
@@ -199,22 +224,6 @@ export const StatsScreen: React.FC = () => {
     }
   };
 
-  // Update timer display
-  useEffect(() => {
-    const updateTimer = () => {
-      const remainingTime = globalTimerService.getNextOpponentTimeRemaining();
-      setTimeRemaining(remainingTime);
-    };
-
-    // Update immediately
-    updateTimer();
-
-    // Set up interval to update every second
-    const interval = setInterval(updateTimer, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   // Setup opponent switch listener
   useEffect(() => {
     const callback: OpponentSwitchCallback = {
@@ -333,16 +342,6 @@ export const StatsScreen: React.FC = () => {
               {user.stats.netCoins >= 0 ? '+' : ''}{user.stats.netCoins}
             </Text>
           </View>
-
-          {/* Show countdown timer for opponent card */}
-          {!isUser && (
-            <>
-              <View style={styles.countdownSection}>
-                <Text style={styles.countdownLabel}>New opponent in:</Text>
-                <Text style={styles.countdownTime}>{timeRemaining}</Text>
-              </View>
-            </>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -351,18 +350,25 @@ export const StatsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Header with back and profile buttons */}
+        {/* Header with navigation and logo */}
         <View style={styles.header}>
+          {/* Back Button */}
           <TouchableOpacity 
-            style={styles.backButton} 
+            style={styles.backButton}
             onPress={handleGoBack}
             activeOpacity={0.8}
           >
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
-          
+
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <GridLogo />
+          </View>
+
+          {/* Profile Button */}
           <TouchableOpacity 
-            style={styles.profileButton} 
+            style={styles.profileButton}
             onPress={handleProfilePress}
             activeOpacity={0.8}
           >
@@ -370,16 +376,12 @@ export const StatsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Title and updated time */}
+        {/* Title section */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Daily Challenge</Text>
           {lastUpdated && (
             <Text style={styles.updatedText}>
-              Updated {lastUpdated.toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: true 
-              })}
+              Last updated: {lastUpdated.toLocaleTimeString()}
             </Text>
           )}
         </View>
@@ -640,27 +642,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
 
-  // Countdown timer styles
-  countdownSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  countdownLabel: {
-    fontSize: 14,
-    color: '#A67C52', // tan-500 (primary tan)
-    fontFamily: 'Inter',
-  },
-
-  countdownTime: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827', // gray-900 (dark text)
-    fontFamily: 'Inter',
-    letterSpacing: 1,
-  },
-
   // Loading state styles
   loadingContainer: {
     flex: 1,
@@ -678,6 +659,47 @@ const styles = StyleSheet.create({
   buttonContainer: {
     alignItems: 'center',
     marginTop: 16,
+  },
+
+  // Logo container styles
+  logoContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  // Grid styles
+  gridContainer: {
+    width: 24,
+    height: 24,
+    gap: 1,
+  },
+
+  gridRow: {
+    flexDirection: 'row',
+    gap: 1,
+    flex: 1,
+  },
+
+  gridSquare: {
+    flex: 1,
+    borderRadius: 2,
+  },
+
+  gridDark: {
+    backgroundColor: '#4B5563', // gray-600
+  },
+
+  gridTan: {
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
   },
 });
 
