@@ -1,13 +1,17 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, Modal } from 'react-native';
+import React, { useEffect, useState, useContext, useRef } from 'react';
+import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, Modal, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getOpponentOfTheDay, getNewOpponent } from '../services/opponentService';
 import { getTodaysCoinTransactions } from '../services/timerService';
 import globalTimerService, { OpponentSwitchCallback } from '../services/globalTimerService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabase from '../../lib/supabase';
 import { colors, commonStyles, spacing, typography } from '../styles/theme';
 import { SessionContext } from '../navigation/RootNavigator';
+
+// Storage key for acceptance state
+const OPPONENT_ACCEPTANCE_KEY = 'opponent_accepted_';
 
 // Logo component with grid design
 const GridLogo: React.FC = () => {
@@ -53,7 +57,121 @@ export const OpponentOfTheDay: React.FC = () => {
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [userStats, setUserStats] = useState({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
   const [opponentStats, setOpponentStats] = useState({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
+  
+  // New states for acceptance functionality
+  const [isNewOpponent, setIsNewOpponent] = useState(false);
+  const [hasAcceptedOpponent, setHasAcceptedOpponent] = useState(false);
+  
   const navigation = useNavigation();
+  
+  // Animation refs
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  // Start pulsing animation
+  const startPulseAnimation = () => {
+    // Reset animation values first
+    pulseAnim.setValue(1);
+    glowAnim.setValue(0);
+    
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.08,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    const glowAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 0.8,
+          duration: 1200,
+          useNativeDriver: true, // Changed to true to match pulseAnim
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.2,
+          duration: 1200,
+          useNativeDriver: true, // Changed to true to match pulseAnim
+        }),
+      ])
+    );
+
+    pulseAnimation.start();
+    glowAnimation.start();
+  };
+
+  // Stop pulsing animation
+  const stopPulseAnimation = () => {
+    // Stop animations properly without setValue to avoid native driver conflicts
+    pulseAnim.stopAnimation(() => {
+      pulseAnim.setValue(1);
+    });
+    glowAnim.stopAnimation(() => {
+      glowAnim.setValue(0);
+    });
+  };
+
+  // Navigate to stats screen
+  const handleNavigateToStats = () => {
+    (navigation as any).navigate('Stats', {
+      opponentName: `${opponent?.firstName} ${opponent?.lastName}`,
+      opponentId: opponent?.id || 'unknown'
+    });
+  };
+
+  // Check acceptance state
+  const checkAcceptanceState = async (opponentId: string) => {
+    try {
+      const acceptanceKey = OPPONENT_ACCEPTANCE_KEY + opponentId;
+      const accepted = await AsyncStorage.getItem(acceptanceKey);
+      const hasAccepted = accepted === 'true';
+      setHasAcceptedOpponent(hasAccepted);
+      
+      // Stop any existing animations first
+      stopPulseAnimation();
+      
+      // If not accepted, show pulse animation
+      if (!hasAccepted) {
+        setIsNewOpponent(true);
+        startPulseAnimation();
+      } else {
+        setIsNewOpponent(false);
+      }
+    } catch (error) {
+      console.error('Error checking acceptance state:', error);
+    }
+  };
+
+  // Mark opponent as accepted
+  const markOpponentAccepted = async (opponentId: string) => {
+    try {
+      const acceptanceKey = OPPONENT_ACCEPTANCE_KEY + opponentId;
+      await AsyncStorage.setItem(acceptanceKey, 'true');
+      setHasAcceptedOpponent(true);
+      setIsNewOpponent(false);
+    } catch (error) {
+      console.error('Error marking opponent accepted:', error);
+    }
+  };
+
+  // Clear acceptance state (called when countdown resets)
+  const clearAcceptanceState = async (opponentId: string) => {
+    try {
+      const acceptanceKey = OPPONENT_ACCEPTANCE_KEY + opponentId;
+      await AsyncStorage.removeItem(acceptanceKey);
+      setHasAcceptedOpponent(false);
+    } catch (error) {
+      console.error('Error clearing acceptance state:', error);
+    }
+  };
 
   const fetchOpponent = async (forceRefresh = false) => {
     try {
@@ -71,16 +189,20 @@ export const OpponentOfTheDay: React.FC = () => {
       
       if (opponentData) {
         setOpponent(opponentData);
+        // Check acceptance state for this opponent
+        await checkAcceptanceState(opponentData.id);
       } else {
         console.log('No opponent found');
         // Set a fallback opponent for display
-        setOpponent({
+        const fallbackOpponent = {
           id: 'no-opponent',
           firstName: 'No',
           lastName: 'Opponent',
           university: 'No info given',
           major: 'No info given'
-        });
+        };
+        setOpponent(fallbackOpponent);
+        await checkAcceptanceState(fallbackOpponent.id);
       }
     } catch (error) {
       console.error('Error fetching opponent:', error);
@@ -89,14 +211,40 @@ export const OpponentOfTheDay: React.FC = () => {
 
   const handleRefreshOpponent = async () => {
     setIsRefreshing(true);
+    stopPulseAnimation(); // Stop any existing animation
+    
+    // Clear acceptance state for current opponent before fetching new one
+    if (opponent) {
+      await clearAcceptanceState(opponent.id);
+    }
+    setHasAcceptedOpponent(false);
+    setIsNewOpponent(true);
+    
     await fetchOpponent(true); // Force refresh
     setIsRefreshing(false);
+    
+    // Start pulsing for new opponent
+    startPulseAnimation();
   };
 
-  // Handle Accept button press - navigates to StatsScreen
-  const handleAcceptChallenge = () => {
-    // Navigate to the StatsScreen to show user vs opponent comparison
-    // Pass opponent data so the screen can display the actual opponent name
+  // Handle Accept button press with animation
+  const handleAcceptChallenge = async () => {
+    console.log('🎯 Accept button pressed', { opponent: opponent?.id, hasAccepted: hasAcceptedOpponent });
+    
+    if (!opponent || hasAcceptedOpponent) {
+      console.log('🎯 Accept blocked - no opponent or already accepted');
+      return;
+    }
+    
+    console.log('🎯 Starting accept process...');
+    
+    // Stop pulsing animation immediately
+    stopPulseAnimation();
+    
+    // Mark as accepted
+    await markOpponentAccepted(opponent.id);
+    
+    // Navigate to StatsScreen immediately
     (navigation as any).navigate('Stats', {
       opponentName: `${opponent?.firstName} ${opponent?.lastName}`,
       opponentId: opponent?.id || 'unknown'
@@ -109,7 +257,7 @@ export const OpponentOfTheDay: React.FC = () => {
       const remainingTime = globalTimerService.getNextOpponentTimeRemaining();
       setTimeRemaining(remainingTime);
       
-      // If timer hits 0, show results
+      // If timer hits 0, show results and reset acceptance state
       if (remainingTime === '00:00:00') {
         handleTimerComplete();
       }
@@ -130,6 +278,11 @@ export const OpponentOfTheDay: React.FC = () => {
       // Get current user
       const { data: { user } } = await supabase.getUser();
       if (!user) return;
+
+      // Clear acceptance state for current opponent
+      if (opponent) {
+        await clearAcceptanceState(opponent.id);
+      }
 
       // Fetch final stats for both users
       const userResult = await getTodaysCoinTransactions(user.id);
@@ -156,9 +309,23 @@ export const OpponentOfTheDay: React.FC = () => {
   // Handle results modal close
   const handleCloseResults = async () => {
     setShowResultsModal(false);
+    // Reset acceptance state and get new opponent
+    setHasAcceptedOpponent(false);
+    setIsNewOpponent(true);
     // Refresh opponent data
     await fetchOpponent(true);
+    // Start pulsing for new opponent
+    startPulseAnimation();
   };
+
+  // Handle screen focus (when returning from StatsScreen)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (opponent) {
+        checkAcceptanceState(opponent.id);
+      }
+    }, [opponent])
+  );
 
   useEffect(() => {
     const initializeFetch = async () => {
@@ -168,7 +335,87 @@ export const OpponentOfTheDay: React.FC = () => {
     };
 
     initializeFetch();
+    
+    // Cleanup animations on unmount
+    return () => {
+      stopPulseAnimation();
+    };
   }, []);
+
+  // Render opponent card with conditional animation
+  const renderOpponentCard = () => {
+    const shouldShowGlow = isNewOpponent && !hasAcceptedOpponent;
+    
+    const scaleStyle = {
+      transform: [{ scale: shouldShowGlow ? pulseAnim : 1 }],
+    };
+
+    const glowStyle = shouldShowGlow ? {
+      transform: [{ scale: glowAnim }],
+      opacity: 0.3,
+      position: 'absolute' as const,
+      top: -10,
+      left: -10,
+      right: -10,
+      bottom: -10,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 30,
+      zIndex: -1,
+    } : null;
+
+    return (
+      <View style={styles.cardWrapper}>
+        {/* Glow effect behind the card */}
+        {shouldShowGlow && (
+          <Animated.View style={glowStyle} />
+        )}
+        
+        {/* Main card with scale animation */}
+        <Animated.View style={[styles.opponentCard, scaleStyle]}>
+          {/* Avatar */}
+          <View style={styles.avatarContainer}>
+            {opponent?.avatarUrl ? (
+              <Image
+                source={{ uri: opponent.avatarUrl }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>
+                  {opponent?.firstName[0]?.toUpperCase()}
+                  {opponent?.lastName[0]?.toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Opponent Information */}
+          <View style={styles.infoContainer}>
+            <View style={styles.infoSection}>
+              <Text style={styles.infoLabel}>Name</Text>
+              <Text style={styles.infoValue}>
+                {opponent?.firstName} {opponent?.lastName}
+              </Text>
+            </View>
+
+            <View style={styles.infoSection}>
+              <Text style={styles.infoLabel}>University</Text>
+              <Text style={styles.infoValue}>
+                {opponent?.university || "No info given"}
+              </Text>
+            </View>
+
+            <View style={styles.infoSection}>
+              <Text style={styles.infoLabel}>Major</Text>
+              <Text style={styles.infoValue}>
+                {opponent?.major || "No info given"}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -208,59 +455,27 @@ export const OpponentOfTheDay: React.FC = () => {
         {/* Header Title */}
         <Text style={styles.title}>Opponent of the Day</Text>
         
-        {/* Opponent Card */}
-        <View style={styles.opponentCard}>
-          {/* Avatar */}
-          <View style={styles.avatarContainer}>
-            {opponent.avatarUrl ? (
-              <Image
-                source={{ uri: opponent.avatarUrl }}
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
-                  {opponent.firstName[0]?.toUpperCase()}
-                  {opponent.lastName[0]?.toUpperCase()}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Opponent Information */}
-          <View style={styles.infoContainer}>
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>Name</Text>
-              <Text style={styles.infoValue}>
-                {opponent.firstName} {opponent.lastName}
-              </Text>
-            </View>
-
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>University</Text>
-              <Text style={styles.infoValue}>
-                {opponent.university || "No info given"}
-              </Text>
-            </View>
-
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>Major</Text>
-              <Text style={styles.infoValue}>
-                {opponent.major || "No info given"}
-              </Text>
-            </View>
-          </View>
-        </View>
+        {/* Opponent Card with Animation */}
+        {renderOpponentCard()}
 
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
           {/* Accept Button */}
           <TouchableOpacity 
-            style={styles.acceptButton}
+            style={[
+              styles.acceptButton, 
+              (hasAcceptedOpponent) && styles.acceptButtonDisabled
+            ]}
             onPress={handleAcceptChallenge}
+            disabled={hasAcceptedOpponent}
             activeOpacity={0.8}
           >
-            <Text style={styles.acceptButtonText}>Accept</Text>
+            <Text style={[
+              styles.acceptButtonText,
+              (hasAcceptedOpponent) && styles.acceptButtonTextDisabled
+            ]}>
+              {hasAcceptedOpponent ? 'Accepted' : 'Accept'}
+            </Text>
           </TouchableOpacity>
 
           {/* Countdown Timer */}
@@ -390,8 +605,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
-    marginVertical: 20,
-    maxHeight: '50%', // Limit the card height
   },
 
   avatarContainer: {
@@ -465,6 +678,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter',
+  },
+
+  acceptButtonDisabled: {
+    backgroundColor: '#9CA3AF', // gray-400 (disabled state)
+    opacity: 0.6,
+  },
+
+  acceptButtonTextDisabled: {
+    color: '#D1D5DB', // gray-300 (disabled text)
   },
 
   countdownContainer: {
@@ -643,6 +865,11 @@ const styles = StyleSheet.create({
 
   gridTan: {
     backgroundColor: '#A67C52', // tan-500 (primary tan)
+  },
+
+  cardWrapper: {
+    position: 'relative',
+    marginVertical: 20,
   },
 });
 
