@@ -363,6 +363,68 @@ export const OpponentOfTheDay: React.FC = () => {
       zIndex: -1,
     } : null;
 
+    // Handle card press - only when accepted
+    const handleCardPress = () => {
+      if (hasAcceptedOpponent && opponent) {
+        (navigation as any).navigate('Stats', {
+          opponentName: `${opponent.firstName} ${opponent.lastName}`,
+          opponentId: opponent.id
+        });
+      }
+    };
+
+    const CardContent = () => (
+      <>
+        {/* Avatar */}
+        <View style={styles.avatarContainer}>
+          {opponent?.avatarUrl ? (
+            <Image
+              source={{ uri: opponent.avatarUrl }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>
+                {opponent?.firstName[0]?.toUpperCase()}
+                {opponent?.lastName[0]?.toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Opponent Information */}
+        <View style={styles.infoContainer}>
+          <View style={styles.infoSection}>
+            <Text style={styles.infoLabel}>Name</Text>
+            <Text style={styles.infoValue}>
+              {opponent?.firstName} {opponent?.lastName}
+            </Text>
+          </View>
+
+          <View style={styles.infoSection}>
+            <Text style={styles.infoLabel}>University</Text>
+            <Text style={styles.infoValue}>
+              {opponent?.university || "No info given"}
+            </Text>
+          </View>
+
+          <View style={styles.infoSection}>
+            <Text style={styles.infoLabel}>Major</Text>
+            <Text style={styles.infoValue}>
+              {opponent?.major || "No info given"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Tap hint when accepted */}
+        {hasAcceptedOpponent && (
+          <View style={styles.tapHint}>
+            <Text style={styles.tapHintText}>Tap to view stats</Text>
+          </View>
+        )}
+      </>
+    );
+
     return (
       <View style={styles.cardWrapper}>
         {/* Glow effect behind the card */}
@@ -371,48 +433,19 @@ export const OpponentOfTheDay: React.FC = () => {
         )}
         
         {/* Main card with scale animation */}
-        <Animated.View style={[styles.opponentCard, scaleStyle]}>
-          {/* Avatar */}
-          <View style={styles.avatarContainer}>
-            {opponent?.avatarUrl ? (
-              <Image
-                source={{ uri: opponent.avatarUrl }}
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
-                  {opponent?.firstName[0]?.toUpperCase()}
-                  {opponent?.lastName[0]?.toUpperCase()}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Opponent Information */}
-          <View style={styles.infoContainer}>
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>Name</Text>
-              <Text style={styles.infoValue}>
-                {opponent?.firstName} {opponent?.lastName}
-              </Text>
-            </View>
-
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>University</Text>
-              <Text style={styles.infoValue}>
-                {opponent?.university || "No info given"}
-              </Text>
-            </View>
-
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>Major</Text>
-              <Text style={styles.infoValue}>
-                {opponent?.major || "No info given"}
-              </Text>
-            </View>
-          </View>
-        </Animated.View>
+        {hasAcceptedOpponent ? (
+          <TouchableOpacity
+            style={[styles.opponentCard, scaleStyle]}
+            onPress={handleCardPress}
+            activeOpacity={0.8}
+          >
+            <CardContent />
+          </TouchableOpacity>
+        ) : (
+          <Animated.View style={[styles.opponentCard, scaleStyle]}>
+            <CardContent />
+          </Animated.View>
+        )}
       </View>
     );
   };
@@ -870,6 +903,21 @@ const styles = StyleSheet.create({
   cardWrapper: {
     position: 'relative',
     marginVertical: 20,
+    flex: 1,
+    maxHeight: '50%', // Limit the card height
+  },
+
+  tapHint: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+
+  tapHintText: {
+    fontSize: 14,
+    color: '#A67C52',
+    fontWeight: '500',
+    fontFamily: 'Inter',
+    opacity: 0.7,
   },
 });
 
