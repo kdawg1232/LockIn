@@ -254,16 +254,6 @@ export const StatsScreen: React.FC = () => {
     (navigation as any).navigate('Timer');
   };
 
-  // Handle back button press
-  const handleGoBack = () => {
-    navigation.goBack();
-  };
-
-  // Handle profile button press
-  const handleProfilePress = () => {
-    (navigation as any).navigate('Profile');
-  };
-
   // Handle debug refresh button press
   const handleDebugRefresh = async () => {
     console.log('🔍 Debug refresh button pressed');
@@ -353,28 +343,10 @@ export const StatsScreen: React.FC = () => {
       <View style={styles.content}>
         {/* Header with navigation and logo */}
         <View style={styles.header}>
-          {/* Back Button */}
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={handleGoBack}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-
           {/* Logo */}
           <View style={styles.logoContainer}>
             <GridLogo />
           </View>
-
-          {/* Profile Button */}
-          <TouchableOpacity 
-            style={styles.profileButton}
-            onPress={handleProfilePress}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.profileButtonText}>Profile</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Title section */}
@@ -440,47 +412,9 @@ const styles = StyleSheet.create({
   // Header styles
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-  },
-
-  backButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)', // more muted white
-    borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-
-  backButtonText: {
-    color: '#111827', // gray-900 (dark text)
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-
-  profileButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)', // more muted white
-    borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-
-  profileButtonText: {
-    color: '#111827', // gray-900 (dark text)
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter',
   },
 
   // Title section

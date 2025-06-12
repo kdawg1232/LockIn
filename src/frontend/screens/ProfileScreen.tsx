@@ -177,11 +177,6 @@ export const ProfileScreen: React.FC = () => {
     setIsEditing(false);
   };
 
-  // Handle back navigation
-  const handleGoBack = () => {
-    navigation.goBack();
-  };
-
   // Initialize profile data on component mount
   useEffect(() => {
     fetchUserProfile();
@@ -230,17 +225,6 @@ export const ProfileScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Back Button */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={handleGoBack}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Title */}
         <Text style={styles.title}>Profile</Text>
 
@@ -667,33 +651,6 @@ const styles = StyleSheet.create({
 
   retryButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-
-  // Back button styles - consistent with other screens
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)', // muted white background
-    borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-
-  backButtonText: {
-    color: '#111827', // gray-900 (dark text)
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter',

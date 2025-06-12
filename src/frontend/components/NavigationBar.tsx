@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -35,14 +35,13 @@ export const NavigationBar = () => {
   return (
     <View style={styles.container}>
       <View style={styles.navigationBar}>
-        {/* Profile Button */}
+        {/* Challenge Button - Lightning Bolt */}
         <TouchableOpacity 
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => navigation.navigate('OpponentOfTheDay')}
           style={styles.navButton}
           activeOpacity={0.7}
         >
-          <Ionicons name="person-outline" size={20} color="#555960" />
-          <Text style={styles.navButtonText}>Profile</Text>
+          <Ionicons name="flash" size={20} color="#000000" />
         </TouchableOpacity>
 
         {/* Logo Home Button */}
@@ -54,7 +53,15 @@ export const NavigationBar = () => {
           <View style={styles.logoContainer}>
             <GridLogo />
           </View>
-          <Text style={styles.navButtonText}>Home</Text>
+        </TouchableOpacity>
+
+        {/* Profile Button */}
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('Profile')}
+          style={styles.navButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="person" size={20} color="#000000" />
         </TouchableOpacity>
 
         {/* Community Button */}
@@ -63,8 +70,7 @@ export const NavigationBar = () => {
           style={styles.navButton}
           activeOpacity={0.7}
         >
-          <Ionicons name="people-outline" size={20} color="#555960" />
-          <Text style={styles.navButtonText}>Community</Text>
+          <Ionicons name="people" size={20} color="#000000" />
         </TouchableOpacity>
       </View>
     </View>
@@ -88,7 +94,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 30, // Reduced from 20 to move buttons closer to edges
+    paddingHorizontal: 25,
     paddingBottom: 20,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
@@ -102,14 +108,14 @@ const styles = StyleSheet.create({
   navButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 60, // Reduced from 80
+    minWidth: 50,
     paddingVertical: 8,
   },
 
   logoButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 60,
+    minWidth: 50,
     paddingVertical: 8,
   },
 
@@ -117,23 +123,14 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 8,
-    backgroundColor: 'rgba(166, 124, 82, 0.1)', // Light tan background
+    backgroundColor: 'rgba(166, 124, 82, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2,
-  },
-
-  navButtonText: {
-    fontSize: 11, // Reduced from 12
-    color: '#555960',
-    marginTop: 4,
-    fontWeight: '500',
-    fontFamily: 'Inter',
   },
 
   // Grid logo styles
   gridContainer: {
-    width: 16, // Reduced from original size
+    width: 16,
     height: 16,
     gap: 1,
   },
