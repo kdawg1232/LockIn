@@ -65,3 +65,6 @@ Goal: Users can sign up / sign in with Supabase auth and land on the bare-bones 
 
 ✅ 1.26 Create ProfileScreen with user management - Create ProfileScreen accessible from StatsScreen via top-right button. Display user profile pic, school, major, and name. Add "Edit Profile" button for updating user information in database. Include "Logout" button at bottom to sign out. Remove existing logout button from OpponentOfTheDay screen. (2024-12-26)
 
+✅ 1.27 Implement opponent card UI/UX improvements (2024-03-19) - Enhanced opponent card with white pulsing animation for new opponents (removed green border). Added card clickability after acceptance with "Tap to view stats" hint. Fixed animation issues using consistent native drivers. Improved reset conditions for timer expiration and new opponent button. Fixed card layout and visibility issues.
+
+✅ 1.28 On the Stats screen, add the following image to the bottom below the lock in button. The first one is Home button, when this is clicked, it takes to the Stats screen. When the profile button is clicked in the middle, the user goes to the profile screen. When the user clicks on the community button, it should lead to a new screen. Call this the CommunityScreen. On this page, just have "Coming soon!" (2024-12-26)

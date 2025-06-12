@@ -14,6 +14,7 @@ import { StatsScreen } from '../screens/StatsScreen';
 import { UserStatsScreen } from '../screens/UserStatsScreen';
 import { TimerDistractionScreen } from '../screens/TimerDistractionScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { CommunityScreen } from '../screens/CommunityScreen';
 import { View, Text } from 'react-native';
 
 type RootStackParamList = {
@@ -32,6 +33,7 @@ type RootStackParamList = {
   };
   Timer: undefined;
   Profile: undefined;
+  Community: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -267,6 +269,14 @@ export const RootNavigator = () => {
               <Stack.Screen 
                 name="Profile" 
                 component={ProfileScreen}
+                options={{
+                  animation: 'slide_from_right',
+                  animationDuration: 300,
+                }}
+              />
+              <Stack.Screen 
+                name="Community" 
+                component={CommunityScreen}
                 options={{
                   animation: 'slide_from_right',
                   animationDuration: 300,

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import supabase from '../../lib/supabase';
 import { SessionContext } from '../navigation/RootNavigator';
+import { NavigationBar } from '../components/NavigationBar';
 
 // Interface for user profile data
 interface UserProfile {
@@ -412,6 +413,7 @@ export const ProfileScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
+      <NavigationBar />
     </SafeAreaView>
   );
 };
@@ -429,7 +431,7 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingTop: 16,
-    paddingBottom: 16,
+    paddingBottom: 120,
   },
 
   // Title
@@ -696,6 +698,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Inter',
   },
-});
-
-export default ProfileScreen; 
+}); 

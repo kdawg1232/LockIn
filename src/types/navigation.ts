@@ -16,6 +16,7 @@ export type RootStackParamList = {
   };
   Timer: undefined;
   Profile: undefined;
+  Community: undefined;
 };
 
 export type AuthStackParamList = {

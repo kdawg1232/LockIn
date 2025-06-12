@@ -5,6 +5,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { getTodaysCoinTransactions } from '../services/timerService';
 import globalTimerService, { OpponentSwitchCallback } from '../services/globalTimerService';
 import supabase from '../../lib/supabase';
+import { NavigationBar } from '../components/NavigationBar';
 
 // Logo component with grid design
 const GridLogo: React.FC = () => {
@@ -418,6 +419,7 @@ export const StatsScreen: React.FC = () => {
           </View>
         )}
       </View>
+      <NavigationBar />
     </SafeAreaView>
   );
 };
@@ -432,7 +434,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 16,
+    paddingBottom: 100, // Increased to accommodate bottom navigation bar
   },
 
   // Header styles
@@ -440,7 +442,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
 
   backButton: {
@@ -484,7 +486,7 @@ const styles = StyleSheet.create({
   // Title section
   titleContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
 
   title: {
@@ -505,7 +507,8 @@ const styles = StyleSheet.create({
   // Stats section
   statsSection: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+    paddingBottom: 10,
   },
 
   // Stats card styles
@@ -513,7 +516,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff', // white
     borderRadius: 20,
     padding: 24,
-    marginBottom: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
@@ -610,7 +613,7 @@ const styles = StyleSheet.create({
   // VS indicator styles
   vsContainer: {
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 8,
   },
 
   vsText: {
@@ -658,7 +661,8 @@ const styles = StyleSheet.create({
   // New button container styles
   buttonContainer: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 20,
+    marginBottom: 16,
   },
 
   // Logo container styles
@@ -701,6 +705,4 @@ const styles = StyleSheet.create({
   gridTan: {
     backgroundColor: '#A67C52', // tan-500 (primary tan)
   },
-});
-
-export default StatsScreen; 
+}); 
