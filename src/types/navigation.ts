@@ -18,6 +18,7 @@ export type RootStackParamList = {
   Profile: undefined;
   Community: undefined;
   SettingsPrivacy: undefined; // New screen for task 1.31
+  EditProfile: undefined; // New screen for editing profile
 };
 
 export type AuthStackParamList = {

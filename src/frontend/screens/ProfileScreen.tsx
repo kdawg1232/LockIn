@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, TextInput, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import supabase from '../../lib/supabase';
-import { SessionContext } from '../navigation/RootNavigator';
 import { NavigationBar } from '../components/NavigationBar';
 import { getUserProfile, UserProfileData } from '../services/profileService';
 import { getRecentChallengeHistory, CalendarDay } from '../services/challengeHistoryService';
@@ -29,27 +28,15 @@ type CalendarView = 'Week' | 'Month' | 'Year';
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { refreshSession } = useContext(SessionContext);
   
   // State management
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   // Calendar state
   const [calendarData, setCalendarData] = useState<CalendarDay[]>([]);
   const [selectedCalendarView, setSelectedCalendarView] = useState<CalendarView>('Month');
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
-  
-  // Edit form state
-  const [editForm, setEditForm] = useState({
-    firstName: '',
-    lastName: '',
-    university: '',
-    major: ''
-  });
 
   // Fetch enhanced user profile data including new fields
   const fetchUserProfile = async () => {
@@ -87,14 +74,6 @@ export const ProfileScreen: React.FC = () => {
         };
         
         setUserProfile(profile);
-        
-        // Initialize edit form with current data
-        setEditForm({
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          university: profile.university,
-          major: profile.major
-        });
 
         console.log('🔍 Enhanced profile loaded:', {
           focusScore: profile.focusScore,
@@ -135,98 +114,9 @@ export const ProfileScreen: React.FC = () => {
     }
   };
 
-  // Handle profile update
-  const handleSaveProfile = async () => {
-    if (!userProfile) return;
-    
-    setIsSaving(true);
-    try {
-      // Update user profile in database
-      const { error } = await supabase
-        .from('users')
-        .update({
-          first_name: editForm.firstName.trim(),
-          last_name: editForm.lastName.trim(),
-          university: editForm.university.trim(),
-          major: editForm.major.trim()
-        })
-        .eq('id', userProfile.id);
-
-      if (error) {
-        console.error('Error updating profile:', error);
-        Alert.alert('Error', 'Failed to update profile. Please try again.');
-        return;
-      }
-
-      // Update local state with new data
-      setUserProfile({
-        ...userProfile,
-        firstName: editForm.firstName.trim(),
-        lastName: editForm.lastName.trim(),
-        university: editForm.university.trim(),
-        major: editForm.major.trim()
-      });
-
-      setIsEditing(false);
-      Alert.alert('Success', 'Profile updated successfully!');
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Handle logout
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            setIsLoggingOut(true);
-            try {
-              // Sign out from Supabase
-              await supabase.signOut();
-              
-              // Refresh session state which will trigger navigation change
-              await refreshSession();
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-            } finally {
-              setIsLoggingOut(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   // Handle settings navigation (task 1.31)
   const handleSettingsNavigation = () => {
-    navigation.navigate('SettingsPrivacy');
-  };
-
-  // Handle cancel editing
-  const handleCancelEdit = () => {
-    // Reset edit form to original values
-    if (userProfile) {
-      setEditForm({
-        firstName: userProfile.firstName,
-        lastName: userProfile.lastName,
-        university: userProfile.university,
-        major: userProfile.major
-      });
-    }
-    setIsEditing(false);
+    navigation.navigate('SettingsPrivacy' as never);
   };
 
   // Render calendar square for a specific day
@@ -262,37 +152,22 @@ export const ProfileScreen: React.FC = () => {
     fetchCalendarData();
   }, []);
 
-  // Loading state
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#A67C52" />
-          <Text style={styles.loadingText}>
-            Loading profile...
-          </Text>
+          <ActivityIndicator size="large" color="#cfb991" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // Error state - no profile data
   if (!userProfile) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>
-            Failed to load profile
-          </Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={fetchUserProfile}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.retryButtonText}>
-              Retry
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.errorText}>Failed to load profile</Text>
         </View>
       </SafeAreaView>
     );
@@ -305,7 +180,7 @@ export const ProfileScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header with Title and Settings Icon */}
+        {/* Header with Settings Icon */}
         <View style={styles.header}>
           <Text style={styles.title}>Profile</Text>
           <TouchableOpacity 
@@ -317,48 +192,55 @@ export const ProfileScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Stats Cards Row (Tasks 1.29-1.30) */}
-        <View style={styles.statsRow}>
+        {/* Stats Cards Row (Tasks 1.29, 1.30) */}
+        <View style={styles.statsContainer}>
           {/* Focus Score Card */}
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{userProfile.focusScore}</Text>
-            <Text style={styles.statLabel}>Focus{'\n'}Score</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="flash" size={24} color="#cfb991" />
+            </View>
+            <Text style={styles.statValue}>{userProfile.focusScore}</Text>
+            <Text style={styles.statLabel}>Focus Score</Text>
           </View>
 
           {/* Win Streak Card */}
           <View style={styles.statCard}>
-            <Text style={[styles.statNumber, styles.winStreakNumber]}>{userProfile.winStreak}</Text>
-            <Text style={styles.statLabel}>Win{'\n'}Streak</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="flame" size={24} color="#daaa00" />
+            </View>
+            <Text style={styles.statValue}>{userProfile.winStreak}</Text>
+            <Text style={styles.statLabel}>Win Streak</Text>
           </View>
 
           {/* Total Coins Card */}
           <View style={styles.statCard}>
-            <Text style={[styles.statNumber, styles.totalCoinsNumber]}>{userProfile.totalCoins}</Text>
-            <Text style={styles.statLabel}>Total{'\n'}Coins</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="diamond" size={24} color="#ddb945" />
+            </View>
+            <Text style={styles.statValue}>{userProfile.totalCoins}</Text>
+            <Text style={styles.statLabel}>Total Coins</Text>
           </View>
         </View>
 
-        {/* Challenge History Calendar (Task 1.32) */}
-        <View style={styles.calendarCard}>
+        {/* Calendar Section (Task 1.32) */}
+        <View style={styles.calendarSection}>
           <View style={styles.calendarHeader}>
             <Text style={styles.calendarTitle}>Challenge History</Text>
-            <View style={styles.calendarViewButtons}>
+            <View style={styles.calendarViewSelector}>
               {(['Week', 'Month', 'Year'] as CalendarView[]).map((view) => (
                 <TouchableOpacity
                   key={view}
                   style={[
-                    styles.calendarViewButton,
-                    selectedCalendarView === view && styles.calendarViewButtonActive
+                    styles.viewButton,
+                    selectedCalendarView === view && styles.viewButtonActive
                   ]}
                   onPress={() => setSelectedCalendarView(view)}
                   activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      styles.calendarViewButtonText,
-                      selectedCalendarView === view && styles.calendarViewButtonTextActive
-                    ]}
-                  >
+                  <Text style={[
+                    styles.viewButtonText,
+                    selectedCalendarView === view && styles.viewButtonTextActive
+                  ]}>
                     {view}
                   </Text>
                 </TouchableOpacity>
@@ -367,15 +249,16 @@ export const ProfileScreen: React.FC = () => {
           </View>
 
           {/* Calendar Grid */}
-          {isLoadingCalendar ? (
-            <View style={styles.calendarLoading}>
-              <ActivityIndicator size="small" color="#A67C52" />
-            </View>
-          ) : (
-            <View style={styles.calendarGrid}>
-              {calendarData.slice(-31).map((day, index) => renderCalendarSquare(day, index))}
-            </View>
-          )}
+          <View style={styles.calendarGrid}>
+            {isLoadingCalendar ? (
+              <View style={styles.calendarLoading}>
+                <ActivityIndicator size="small" color="#cfb991" />
+                <Text style={styles.calendarLoadingText}>Loading calendar...</Text>
+              </View>
+            ) : (
+              calendarData.map((day, index) => renderCalendarSquare(day, index))
+            )}
+          </View>
 
           {/* Calendar Legend */}
           <View style={styles.calendarLegend}>
@@ -387,15 +270,19 @@ export const ProfileScreen: React.FC = () => {
               <View style={[styles.legendSquare, styles.calendarSquareLoss]} />
               <Text style={styles.legendText}>Loss</Text>
             </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSquare, styles.calendarSquareEmpty]} />
+              <Text style={styles.legendText}>No Data</Text>
+            </View>
           </View>
         </View>
 
         {/* Profile Information Card */}
         <View style={styles.profileCard}>
-          {/* Profile Picture */}
+          {/* Avatar Section */}
           <View style={styles.avatarContainer}>
             {userProfile.avatarUrl ? (
-              <Image
+              <Image 
                 source={{ uri: userProfile.avatarUrl }}
                 style={styles.avatar}
               />
@@ -414,28 +301,11 @@ export const ProfileScreen: React.FC = () => {
             {/* Name */}
             <View style={styles.infoSection}>
               <Text style={styles.infoLabel}>Name</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.textInput}
-                  value={`${editForm.firstName} ${editForm.lastName}`}
-                  onChangeText={(text) => {
-                    const names = text.split(' ');
-                    setEditForm({
-                      ...editForm, 
-                      firstName: names[0] || '',
-                      lastName: names.slice(1).join(' ') || ''
-                    });
-                  }}
-                  placeholder="Full Name"
-                  placeholderTextColor="#9B8B73"
-                />
-              ) : (
-                <View style={styles.infoField}>
-                  <Text style={styles.infoText}>
-                    {userProfile.firstName} {userProfile.lastName}
-                  </Text>
-                </View>
-              )}
+              <View style={styles.infoField}>
+                <Text style={styles.infoText}>
+                  {userProfile.firstName} {userProfile.lastName}
+                </Text>
+              </View>
             </View>
 
             {/* Email */}
@@ -461,103 +331,24 @@ export const ProfileScreen: React.FC = () => {
             {/* School */}
             <View style={styles.infoSection}>
               <Text style={styles.infoLabel}>School</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.textInput}
-                  value={editForm.university}
-                  onChangeText={(text) => setEditForm({...editForm, university: text})}
-                  placeholder="Enter your school/university"
-                  placeholderTextColor="#9B8B73"
-                />
-              ) : (
-                <View style={styles.infoField}>
-                  <Text style={styles.infoText}>
-                    {userProfile.university || 'Not specified'}
-                  </Text>
-                </View>
-              )}
+              <View style={styles.infoField}>
+                <Text style={styles.infoText}>
+                  {userProfile.university || 'Not specified'}
+                </Text>
+              </View>
             </View>
 
             {/* Major */}
             <View style={styles.infoSection}>
               <Text style={styles.infoLabel}>Major</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.textInput}
-                  value={editForm.major}
-                  onChangeText={(text) => setEditForm({...editForm, major: text})}
-                  placeholder="Enter your major"
-                  placeholderTextColor="#9B8B73"
-                />
-              ) : (
-                <View style={styles.infoField}>
-                  <Text style={styles.infoText}>
-                    {userProfile.major || 'Not specified'}
-                  </Text>
-                </View>
-              )}
+              <View style={styles.infoField}>
+                <Text style={styles.infoText}>
+                  {userProfile.major || 'Not specified'}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
-
-        {/* Action Buttons */}
-        {isEditing ? (
-          <View style={styles.editButtonContainer}>
-            {/* Save Changes Button */}
-            <TouchableOpacity 
-              style={styles.saveButton}
-              onPress={handleSaveProfile}
-              disabled={isSaving}
-              activeOpacity={0.8}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Cancel Button */}
-            <TouchableOpacity 
-              style={styles.cancelButton}
-              onPress={handleCancelEdit}
-              disabled={isSaving}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.viewButtonContainer}>
-            {/* Edit Profile Button */}
-            <TouchableOpacity 
-              style={styles.editButton}
-              onPress={() => setIsEditing(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.editButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
-
-            {/* Logout Button */}
-            <TouchableOpacity 
-              style={styles.logoutButton}
-              onPress={handleLogout}
-              disabled={isLoggingOut}
-              activeOpacity={0.8}
-            >
-              {isLoggingOut ? (
-                <View style={styles.logoutLoading}>
-                  <ActivityIndicator size="small" color="#ffffff" />
-                  <Text style={[styles.logoutButtonText, { marginLeft: 8 }]}>
-                    Logging out...
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.logoutButtonText}>Logout</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
       </ScrollView>
       <NavigationBar />
     </SafeAreaView>
@@ -578,6 +369,25 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 16,
     paddingBottom: 120,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 12,
+    fontFamily: 'Inter',
+  },
+
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    fontFamily: 'Inter',
   },
 
   // Header with settings icon
@@ -605,66 +415,67 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
-  // Stats cards row (tasks 1.29-1.30)
-  statsRow: {
+  // Stats cards container (tasks 1.29, 1.30)
+  statsContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    marginBottom: 24,
     gap: 12,
   },
 
   statCard: {
     flex: 1,
     backgroundColor: '#ffffff',
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
-  statNumber: {
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#4F46E5', // Blue for focus score
+    color: '#111827',
     fontFamily: 'Inter',
     marginBottom: 4,
   },
 
-  winStreakNumber: {
-    color: '#059669', // Green for win streak
-  },
-
-  totalCoinsNumber: {
-    color: '#DC2626', // Red for total coins
-  },
-
   statLabel: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280', // gray-500
-    textAlign: 'center',
+    color: '#6B7280',
     fontFamily: 'Inter',
-    lineHeight: 16,
+    textAlign: 'center',
   },
 
-  // Calendar card (task 1.32)
-  calendarCard: {
+  // Calendar section (task 1.32)
+  calendarSection: {
     backgroundColor: '#ffffff',
     borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -678,36 +489,36 @@ const styles = StyleSheet.create({
 
   calendarTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#111827',
     fontFamily: 'Inter',
   },
 
-  calendarViewButtons: {
+  calendarViewSelector: {
     flexDirection: 'row',
     backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-    padding: 4,
+    borderRadius: 8,
+    padding: 2,
   },
 
-  calendarViewButton: {
+  viewButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 6,
   },
 
-  calendarViewButtonActive: {
-    backgroundColor: '#111827',
+  viewButtonActive: {
+    backgroundColor: '#cfb991',
   },
 
-  calendarViewButtonText: {
+  viewButtonText: {
     fontSize: 12,
-    fontWeight: '500',
     color: '#6B7280',
     fontFamily: 'Inter',
+    fontWeight: '500',
   },
 
-  calendarViewButtonTextActive: {
+  viewButtonTextActive: {
     color: '#ffffff',
   },
 
@@ -719,15 +530,11 @@ const styles = StyleSheet.create({
   },
 
   calendarSquare: {
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  calendarSquareEmpty: {
-    backgroundColor: '#F3F4F6', // gray-100
   },
 
   calendarSquareWin: {
@@ -738,23 +545,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444', // red-500
   },
 
+  calendarSquareEmpty: {
+    backgroundColor: '#E5E7EB', // gray-200
+  },
+
   calendarDayNumber: {
-    fontSize: 8,
-    fontWeight: '600',
+    fontSize: 10,
     color: '#ffffff',
+    fontWeight: '600',
     fontFamily: 'Inter',
   },
 
   calendarLoading: {
-    height: 100,
-    justifyContent: 'center',
+    flex: 1,
     alignItems: 'center',
+    paddingVertical: 20,
+  },
+
+  calendarLoadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 8,
+    fontFamily: 'Inter',
   },
 
   calendarLegend: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 20,
+    gap: 16,
   },
 
   legendItem: {
@@ -775,37 +593,36 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
 
-  // Profile card styles
+  // Profile card
   profileCard: {
-    backgroundColor: '#ffffff', // white
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   // Avatar styles
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
 
   avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#F3F4F6', // gray-100
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F3F4F6',
   },
 
   avatarPlaceholder: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#A67C52', // tan-500 (primary tan)
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#cfb991',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -817,189 +634,42 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
 
-  // Info container styles
+  // Profile info styles
   infoContainer: {
-    gap: 12,
+    gap: 16,
   },
 
   infoSection: {
-    marginBottom: 0,
+    gap: 6,
   },
 
   infoLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#A67C52', // tan-500 (primary tan)
-    marginBottom: 4,
+    fontWeight: '600',
+    color: '#374151', // gray-700
     fontFamily: 'Inter',
   },
 
   infoField: {
-    backgroundColor: '#FAF7F1', // tan-50 (lightest)
-    borderWidth: 1,
-    borderColor: '#DABB95', // tan-300
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-
-  nonEditableField: {
     backgroundColor: '#F9FAFB', // gray-50
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
     borderColor: '#E5E7EB', // gray-200
   },
 
+  nonEditableField: {
+    backgroundColor: '#F3F4F6', // gray-100
+  },
+
   infoText: {
-    fontSize: 14,
-    color: '#111827', // gray-900 (dark text)
+    fontSize: 16,
+    color: '#111827', // gray-900
     fontFamily: 'Inter',
   },
 
   nonEditableText: {
     color: '#6B7280', // gray-500
-  },
-
-  // Text input styles for editing
-  textInput: {
-    fontSize: 14,
-    color: '#111827', // gray-900 (dark text)
-    backgroundColor: '#FAF7F1', // tan-50 (lightest)
-    borderWidth: 1,
-    borderColor: '#DABB95', // tan-300
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontFamily: 'Inter',
-  },
-
-  // Button container styles
-  viewButtonContainer: {
-    gap: 10,
-  },
-
-  editButtonContainer: {
-    gap: 10,
-  },
-
-  // Edit Profile button (tan)
-  editButton: {
-    backgroundColor: '#A67C52', // tan-500 (primary tan)
-    paddingVertical: 12,
-    borderRadius: 50,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  editButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-
-  // Save Changes button (dark)
-  saveButton: {
-    backgroundColor: '#111827', // gray-900 (dark text)
-    paddingVertical: 12,
-    borderRadius: 50,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  saveButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-
-  // Cancel button (tan outline)
-  cancelButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#A67C52', // tan-500 (primary tan)
-    paddingVertical: 10,
-    borderRadius: 50,
-    alignItems: 'center',
-  },
-
-  cancelButtonText: {
-    color: '#A67C52', // tan-500 (primary tan)
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-
-  // Logout button (red)
-  logoutButton: {
-    backgroundColor: '#EF4444', // red-500
-    paddingVertical: 12,
-    borderRadius: 50,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  logoutButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-
-  logoutLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  // Loading and error states
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  loadingText: {
-    fontSize: 18,
-    color: '#A67C52', // tan-500 (primary tan)
-    marginTop: 16,
-    fontFamily: 'Inter',
-  },
-
-  errorText: {
-    fontSize: 20,
-    color: '#A67C52', // tan-500 (primary tan)
-    fontWeight: '600',
-    marginBottom: 24,
-    fontFamily: 'Inter',
-  },
-
-  retryButton: {
-    backgroundColor: '#A67C52', // tan-500 (primary tan)
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  retryButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter',
   },
 }); 

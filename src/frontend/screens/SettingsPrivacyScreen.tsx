@@ -1,16 +1,19 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import supabase from '../../lib/supabase';
+import { SessionContext } from '../navigation/RootNavigator';
 
 export const SettingsPrivacyScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { refreshSession } = useContext(SessionContext);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Placeholder handlers for buttons (functionality not implemented yet as per user request)
+  // Navigate to EditProfile screen
   const handleEditProfile = () => {
-    // TODO: Implement edit profile functionality
-    console.log('Edit Profile clicked - functionality to be implemented');
+    navigation.navigate('EditProfile' as never);
   };
 
   const handleDeleteData = () => {
@@ -31,6 +34,39 @@ export const SettingsPrivacyScreen: React.FC = () => {
   const handlePrivacyPolicy = () => {
     // TODO: Implement privacy policy functionality
     console.log('Privacy Policy clicked - functionality to be implemented');
+  };
+
+  // Handle logout functionality
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            setIsLoggingOut(true);
+            try {
+              // Sign out from Supabase
+              await supabase.signOut();
+              
+              // Refresh session state which will trigger navigation change
+              await refreshSession();
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            } finally {
+              setIsLoggingOut(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -145,6 +181,33 @@ export const SettingsPrivacyScreen: React.FC = () => {
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Logout Button at Bottom */}
+        <View style={styles.logoutContainer}>
+          <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            disabled={isLoggingOut}
+            activeOpacity={0.7}
+          >
+            {isLoggingOut ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <View style={[styles.optionIcon, styles.dangerIcon]}>
+                <Ionicons name="log-out-outline" size={24} color="#EF4444" />
+              </View>
+            )}
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionTitle, styles.dangerText]}>
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </Text>
+              <Text style={styles.optionDescription}>
+                Sign out of your account
+              </Text>
+            </View>
+            {!isLoggingOut && <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -263,5 +326,28 @@ const styles = StyleSheet.create({
     color: '#6B7280', // gray-500 (secondary text)
     fontFamily: 'Inter',
     lineHeight: 18,
+  },
+
+  // Logout section styles
+  logoutContainer: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB', // gray-200
+  },
+
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
 }); 

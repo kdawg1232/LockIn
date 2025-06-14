@@ -120,24 +120,15 @@ export const StatsScreen: React.FC = () => {
       const result = await getTodaysCoinTransactions(userId);
       
       if (!result.error) {
-        // Filter stats to only include transactions after last reset
-        const lastResetTime = globalTimerService.getLastStatsResetTime();
-        let filteredStats = {
+        // Use the stats directly from the service
+        const stats = {
           coinsGained: result.coinsGained,
           coinsLost: result.coinsLost,
           netCoins: result.netCoins
         };
         
-        if (lastResetTime) {
-          console.log('📈 Filtering stats after reset time:', new Date(lastResetTime).toISOString());
-          // Only count coins gained after the last reset
-          // For now, just reset coins gained to 0 since we're only tracking gains
-          // TODO: Implement proper filtering when we have transaction timestamps
-          filteredStats = { coinsGained: 0, coinsLost: 0, netCoins: 0 };
-        }
-        
-        setUserStats(filteredStats);
-        console.log('📈 User stats updated:', filteredStats);
+        setUserStats(stats);
+        console.log('📈 User stats updated:', stats);
       } else {
         console.log('📈 No user stats found or error:', result.error);
         setUserStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
@@ -156,24 +147,15 @@ export const StatsScreen: React.FC = () => {
       const result = await getTodaysCoinTransactions(opponentUserId);
       
       if (!result.error) {
-        // Filter stats to only include transactions after last reset
-        const lastResetTime = globalTimerService.getLastStatsResetTime();
-        let filteredStats = {
+        // Use the stats directly from the service
+        const stats = {
           coinsGained: result.coinsGained,
           coinsLost: result.coinsLost,
           netCoins: result.netCoins
         };
         
-        if (lastResetTime) {
-          console.log('📈 Filtering opponent stats after reset time:', new Date(lastResetTime).toISOString());
-          // Only count coins gained after the last reset
-          // For now, just reset coins gained to 0 since we're only tracking gains
-          // TODO: Implement proper filtering when we have transaction timestamps
-          filteredStats = { coinsGained: 0, coinsLost: 0, netCoins: 0 };
-        }
-        
-        setOpponentStats(filteredStats);
-        console.log('📈 Opponent stats updated:', filteredStats);
+        setOpponentStats(stats);
+        console.log('📈 Opponent stats updated:', stats);
       } else {
         console.log('📈 No opponent stats found or error:', result.error);
         setOpponentStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
