@@ -337,6 +337,28 @@ class SupabaseRestClient {
       }),
     };
   }
+
+  // RPC (Remote Procedure Call) for database functions
+  async rpc(functionName: string, params: Record<string, any> = {}): Promise<DatabaseResponse> {
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${this.baseUrl}/rest/v1/rpc/${functionName}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(params),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return { data: null, error: data.message || 'RPC call failed' };
+      }
+      
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error: 'Network error during RPC call' };
+    }
+  }
 }
 
 // Create and export the client

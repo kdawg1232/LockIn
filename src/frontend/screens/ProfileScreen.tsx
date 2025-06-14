@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import supabase from '../../lib/supabase';
 import { NavigationBar } from '../components/NavigationBar';
@@ -29,9 +29,13 @@ type CalendarView = 'Week' | 'Month' | 'Year';
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   
+  // Ref to track if initial load is complete
+  const hasInitiallyLoaded = useRef(false);
+  
   // State management
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Calendar state
   const [calendarData, setCalendarData] = useState<CalendarDay[]>([]);
@@ -74,6 +78,7 @@ export const ProfileScreen: React.FC = () => {
         };
         
         setUserProfile(profile);
+        hasInitiallyLoaded.current = true; // Mark as initially loaded
 
         console.log('🔍 Enhanced profile loaded:', {
           focusScore: profile.focusScore,
@@ -127,6 +132,8 @@ export const ProfileScreen: React.FC = () => {
       squareStyle = styles.calendarSquareWin;
     } else if (day.outcome === 'loss') {
       squareStyle = styles.calendarSquareLoss;
+    } else if (day.outcome === 'tie') {
+      squareStyle = styles.calendarSquareTie;
     }
 
     // Show day number for the last 7 days
@@ -146,11 +153,29 @@ export const ProfileScreen: React.FC = () => {
     );
   };
 
-  // Initialize profile data and calendar on component mount
+  // Initialize profile data and calendar on component mount and when screen comes into focus
   useEffect(() => {
     fetchUserProfile();
     fetchCalendarData();
   }, []);
+
+  // Refresh profile data when screen comes into focus (e.g., after editing profile)
+  useFocusEffect(
+    React.useCallback(() => {
+      const refreshProfile = async () => {
+        // Only refresh if we have initially loaded the profile (not first time)
+        if (hasInitiallyLoaded.current) {
+          console.log('🔄 Profile screen focused - refreshing profile data');
+          setIsRefreshing(true);
+          await fetchUserProfile();
+          await fetchCalendarData(); // Also refresh calendar data
+          setIsRefreshing(false);
+        }
+      };
+      
+      refreshProfile();
+    }, []) // No dependencies needed since we use ref
+  );
 
   if (isLoading) {
     return (
@@ -182,7 +207,16 @@ export const ProfileScreen: React.FC = () => {
       >
         {/* Header with Settings Icon */}
         <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Profile</Text>
+            {isRefreshing && (
+              <ActivityIndicator 
+                size="small" 
+                color="#cfb991" 
+                style={styles.refreshIndicator}
+              />
+            )}
+          </View>
           <TouchableOpacity 
             style={styles.settingsButton}
             onPress={handleSettingsNavigation}
@@ -269,6 +303,10 @@ export const ProfileScreen: React.FC = () => {
             <View style={styles.legendItem}>
               <View style={[styles.legendSquare, styles.calendarSquareLoss]} />
               <Text style={styles.legendText}>Loss</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSquare, styles.calendarSquareTie]} />
+              <Text style={styles.legendText}>Tie</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendSquare, styles.calendarSquareEmpty]} />
@@ -398,12 +436,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  // Title
+  // Title container and title
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
   title: {
     fontSize: 26,
     fontWeight: 'bold',
     color: '#111827', // gray-900 (dark text)
     fontFamily: 'Inter',
+  },
+
+  refreshIndicator: {
+    marginLeft: 8,
   },
 
   // Settings button (task 1.31)
@@ -543,6 +591,10 @@ const styles = StyleSheet.create({
 
   calendarSquareLoss: {
     backgroundColor: '#EF4444', // red-500
+  },
+
+  calendarSquareTie: {
+    backgroundColor: '#9CA3AF', // gray-400 (grey for ties)
   },
 
   calendarSquareEmpty: {

@@ -198,13 +198,16 @@ export const StatsScreen: React.FC = () => {
     setOpponentName('Opponent'); // For now, just use generic name
     
     // Reset stats to 0 since daily competition restarted
+    // Note: Stats remain at 0 until new transactions occur since getTodaysCoinTransactions 
+    // now respects the stats reset time from globalTimerService
     setUserStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
     setOpponentStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
     
-    // Refresh stats
-    if (currentUserId) {
-      fetchAllStats();
-    }
+    console.log('📊 Stats reset to 0 for new opponent challenge period');
+    
+    // Don't fetch stats immediately - let them accumulate from the reset time
+    // The next time stats are refreshed (e.g., on screen focus), they will be calculated
+    // from the reset time forward
   };
 
   // Setup opponent switch listener

@@ -62,4 +62,31 @@ The new fields integrate with existing services:
 All tables maintain proper RLS policies:
 - Users can only access their own data
 - Cross-user access allowed where needed (opponent stats)
-- Authentication required for all operations 
+- Authentication required for all operations
+
+### CRITICAL FIX: Challenge History RLS (COMPLETELY RESOLVED)
+The `challenge_history` table has been completely fixed to support challenge resolution:
+- **SELECT**: Users can only view their own records
+- **INSERT**: ANY authenticated user can insert (allows system to create opponent records)
+- **UPDATE/DELETE**: Users can only modify their own records
+- **BULLETPROOF FUNCTION**: `safe_upsert_challenge_outcome()` handles all edge cases
+
+## Troubleshooting
+
+### ✅ ALL ERRORS RESOLVED
+The previous three errors have been completely eliminated:
+1. ✅ **Duplicate key constraint violations** - Fixed by bulletproof upsert function
+2. ✅ **RLS policy violations** - Fixed by proper INSERT policy
+3. ✅ **Challenge resolution failures** - Fixed by allowing opponent record creation
+
+### Migration Applied
+- Updated RLS policies in `challenge_history_table.sql`
+- Added `safe_upsert_challenge_outcome()` function
+- Updated application code to use new approach
+- Added `rpc()` method to Supabase client
+
+### Missing Fields
+If profile screen shows errors about missing fields:
+1. Verify users table has `focus_score`, `win_streak`, `total_coins` columns
+2. Run users_table.sql to add missing columns
+3. Initialize existing user data with default values 

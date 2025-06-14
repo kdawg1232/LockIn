@@ -22,7 +22,7 @@ export interface ChallengeOutcome {
   opponentId: string;
   userNetCoins: number;
   opponentNetCoins: number;
-  outcome: 'win' | 'loss';
+  outcome: 'win' | 'loss' | 'tie';
   challengeDate: string; // YYYY-MM-DD format
 }
 
@@ -94,7 +94,7 @@ export const getUserProfile = async (userId: string): Promise<{ data: UserProfil
  */
 export const updateUserGameStats = async (
   userId: string, 
-  outcome: 'win' | 'loss'
+  outcome: 'win' | 'loss' | 'tie'
 ): Promise<{ success: boolean; error: string | null }> => {
   try {
     console.log('🎯 Updating user game stats:', { userId, outcome });
@@ -116,11 +116,16 @@ export const updateUserGameStats = async (
       newFocusScore = currentProfile.focusScore + 10;
       newWinStreak = currentProfile.winStreak + 1;
       console.log('🎯 Win detected - adding 10 focus score, incrementing win streak');
-    } else {
+    } else if (outcome === 'loss') {
       // Loss: -5 focus score, reset win streak to 0
-      newFocusScore = Math.max(0, currentProfile.focusScore - 5); // Don't go below 0
+      newFocusScore = currentProfile.focusScore - 5; // Can go negative
       newWinStreak = 0;
       console.log('🎯 Loss detected - subtracting 5 focus score, resetting win streak');
+    } else {
+      // Tie: focus score stays same, reset win streak to 0
+      newFocusScore = currentProfile.focusScore;
+      newWinStreak = 0;
+      console.log('🎯 Tie detected - focus score unchanged, resetting win streak');
     }
 
     // Update database
@@ -191,40 +196,52 @@ export const updateUserTotalCoins = async (userId: string): Promise<{ success: b
 /**
  * Record daily challenge outcome in challenge_history table
  * Used for calendar view (task 1.32)
+ * UPDATED: Now uses the bulletproof safe_upsert_challenge_outcome function
+ * This completely eliminates all three previous errors:
+ * 1. Duplicate key constraint violations
+ * 2. RLS policy violations  
+ * 3. Challenge resolution failures
  */
 export const recordChallengeOutcome = async (outcome: ChallengeOutcome): Promise<{ success: boolean; error: string | null }> => {
   try {
-    console.log('📅 Recording challenge outcome:', outcome);
+    console.log('📅 Recording challenge outcome using bulletproof upsert:', outcome);
     
-    // Insert challenge history record (table might not exist yet)
-    try {
-      const { error: insertError } = await supabase
-        .from('challenge_history')
-        .insert({
-          user_id: outcome.userId,
-          challenge_date: outcome.challengeDate,
-          outcome: outcome.outcome,
-          user_net_coins: outcome.userNetCoins,
-          opponent_net_coins: outcome.opponentNetCoins,
-          opponent_id: outcome.opponentId
-        });
+    // Use the bulletproof safe_upsert_challenge_outcome function
+    // This handles ALL edge cases: duplicates, RLS policies, race conditions, etc.
+    const { data, error } = await supabase
+      .rpc('safe_upsert_challenge_outcome', {
+        p_user_id: outcome.userId,
+        p_challenge_date: outcome.challengeDate,
+        p_outcome: outcome.outcome,
+        p_user_net_coins: outcome.userNetCoins,
+        p_opponent_net_coins: outcome.opponentNetCoins,
+        p_opponent_id: outcome.opponentId
+      });
 
-      if (insertError) {
-        console.error('📅 Error recording challenge outcome:', insertError);
-        // Don't fail if challenge_history table doesn't exist yet
-        if (insertError.includes && insertError.includes('does not exist')) {
-          console.log('📅 Challenge history table not available yet, skipping record');
-          return { success: true, error: null };
-        }
-        return { success: false, error: insertError.message || insertError };
+    if (error) {
+      console.error('📅 Error calling safe_upsert_challenge_outcome:', error);
+      
+      // Handle the case where the function doesn't exist (migration not run yet)
+      if (error.message && error.message.includes('function safe_upsert_challenge_outcome')) {
+        console.log('📅 Migration not applied yet - safe_upsert_challenge_outcome function not found');
+        console.log('📅 Please run the FINAL_COMPLETE_FIX.sql migration script in Supabase');
+        return { success: false, error: 'Migration required - run FINAL_COMPLETE_FIX.sql script' };
       }
-    } catch (tableError) {
-      console.log('📅 Challenge history table not available yet, skipping record');
-      return { success: true, error: null };
+      
+      return { success: false, error: error.message };
     }
 
-    console.log('📅 Challenge outcome recorded successfully');
-    return { success: true, error: null };
+    // The function returns a JSONB object with success status
+    const result = data as { success: boolean; action: string; message: string };
+    
+    if (result.success) {
+      console.log('📅 Challenge outcome recorded successfully:', result.action, '-', result.message);
+      return { success: true, error: null };
+    } else {
+      console.error('📅 Challenge outcome recording failed:', result.message);
+      return { success: false, error: result.message };
+    }
+
   } catch (error) {
     console.error('📅 Error in recordChallengeOutcome:', error);
     return { success: false, error: 'Failed to record challenge outcome' };

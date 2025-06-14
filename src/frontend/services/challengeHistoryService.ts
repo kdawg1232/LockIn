@@ -5,7 +5,7 @@ export interface ChallengeHistoryEntry {
   id: string;
   userId: string;
   challengeDate: string; // YYYY-MM-DD format
-  outcome: 'win' | 'loss';
+  outcome: 'win' | 'loss' | 'tie';
   userNetCoins: number;
   opponentNetCoins: number;
   opponentId?: string;
@@ -15,7 +15,7 @@ export interface ChallengeHistoryEntry {
 // Interface for calendar data
 export interface CalendarDay {
   date: string; // YYYY-MM-DD format
-  outcome: 'win' | 'loss' | null; // null if no challenge data
+  outcome: 'win' | 'loss' | 'tie' | null; // null if no challenge data
   userNetCoins: number;
   opponentNetCoins: number;
 }
@@ -65,7 +65,7 @@ export const getChallengeHistory = async (
         id: row.id,
         userId: row.user_id,
         challengeDate: row.challenge_date,
-        outcome: row.outcome as 'win' | 'loss',
+        outcome: row.outcome as 'win' | 'loss' | 'tie',
         userNetCoins: row.user_net_coins,
         opponentNetCoins: row.opponent_net_coins,
         opponentId: row.opponent_id,

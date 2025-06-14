@@ -1,5 +1,6 @@
 import supabase from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { processDailyChallengeResolution } from './dailyChallengeService';
 
 interface OpponentData {
   id: string;
@@ -43,10 +44,40 @@ export const clearOpponentCache = async (userId: string): Promise<void> => {
 };
 
 // Function to force fetch a new opponent (bypasses cache)
+// This also processes the daily challenge resolution for the previous opponent
 export const getNewOpponent = async (currentUserId: string): Promise<OpponentData | null> => {
   console.log('🎲 Forcing fresh opponent fetch for user:', currentUserId);
+  
+  // Get the current opponent before clearing cache (for challenge resolution)
+  const currentOpponent = await getCurrentOpponent(currentUserId);
+  
+  if (currentOpponent) {
+    console.log('🎲 Processing daily challenge resolution before switching opponents...');
+    const resolutionResult = await processDailyChallengeResolution(currentUserId, currentOpponent.id);
+    
+    if (resolutionResult.success && resolutionResult.result) {
+      console.log('🎲 Challenge resolution completed:', resolutionResult.result);
+    } else {
+      console.error('🎲 Challenge resolution failed:', resolutionResult.error);
+    }
+  }
+  
   await clearOpponentCache(currentUserId);
   return getOpponentOfTheDay(currentUserId);
+};
+
+// Helper function to get current cached opponent without fetching new one
+export const getCurrentOpponent = async (currentUserId: string): Promise<OpponentData | null> => {
+  try {
+    const cachedOpponent = await AsyncStorage.getItem(getOpponentStorageKey(currentUserId));
+    if (cachedOpponent) {
+      return JSON.parse(cachedOpponent);
+    }
+    return null;
+  } catch (error) {
+    console.error('🎲 Error getting current opponent:', error);
+    return null;
+  }
 };
 
 export const getOpponentOfTheDay = async (currentUserId: string): Promise<OpponentData | null> => {
@@ -63,6 +94,20 @@ export const getOpponentOfTheDay = async (currentUserId: string): Promise<Oppone
       if (cachedOpponent) {
         console.log('🎲 Using cached opponent for user', currentUserId, ':', JSON.parse(cachedOpponent));
         return JSON.parse(cachedOpponent);
+      }
+    } else {
+      // Time for new opponent - process challenge resolution for current opponent first
+      const currentOpponent = await getCurrentOpponent(currentUserId);
+      
+      if (currentOpponent) {
+        console.log('🎲 Processing daily challenge resolution due to timer expiration...');
+        const resolutionResult = await processDailyChallengeResolution(currentUserId, currentOpponent.id);
+        
+        if (resolutionResult.success && resolutionResult.result) {
+          console.log('🎲 Challenge resolution completed:', resolutionResult.result);
+        } else {
+          console.error('🎲 Challenge resolution failed:', resolutionResult.error);
+        }
       }
     }
 

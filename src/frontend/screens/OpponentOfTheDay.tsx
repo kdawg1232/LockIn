@@ -53,7 +53,7 @@ export const OpponentOfTheDay: React.FC = () => {
   const [opponent, setOpponent] = useState<OpponentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState<string>('00:20:00');
+  const [timeRemaining, setTimeRemaining] = useState<string>('00:05:00');
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [userStats, setUserStats] = useState({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
   const [opponentStats, setOpponentStats] = useState({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
@@ -220,6 +220,10 @@ export const OpponentOfTheDay: React.FC = () => {
     setHasAcceptedOpponent(false);
     setIsNewOpponent(true);
     
+    // Force a complete opponent switch to reset stats and timer
+    console.log('🔄 Forcing opponent switch due to manual refresh');
+    await globalTimerService.forceOpponentSwitch();
+    
     await fetchOpponent(true); // Force refresh
     setIsRefreshing(false);
     
@@ -286,7 +290,7 @@ export const OpponentOfTheDay: React.FC = () => {
 
       // Fetch final stats for both users
       const userResult = await getTodaysCoinTransactions(user.id);
-      const opponentResult = await getTodaysCoinTransactions(opponent?.id || '');
+      const opponentResult = opponent?.id ? await getTodaysCoinTransactions(opponent.id) : { coinsGained: 0, coinsLost: 0, netCoins: 0, error: null };
 
       setUserStats({
         coinsGained: userResult.coinsGained || 0,

@@ -96,8 +96,23 @@ export const EditProfileScreen: React.FC = () => {
   const handleSaveProfile = async () => {
     if (!userProfile) return;
     
+    // Check if any data actually changed
+    const hasChanges = 
+      editForm.firstName.trim() !== userProfile.firstName ||
+      editForm.lastName.trim() !== userProfile.lastName ||
+      editForm.university.trim() !== userProfile.university ||
+      editForm.major.trim() !== userProfile.major;
+    
+    if (!hasChanges) {
+      // No changes made, just go back
+      navigation.goBack();
+      return;
+    }
+    
     setIsSaving(true);
     try {
+      console.log('💾 Updating user profile in database');
+      
       // Update user profile in database
       const { error } = await supabase
         .from('users')
@@ -115,16 +130,13 @@ export const EditProfileScreen: React.FC = () => {
         return;
       }
 
-      Alert.alert(
-        'Success', 
-        'Profile updated successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack()
-          }
-        ]
-      );
+      console.log('💾 Profile updated successfully');
+      
+      // Navigate back immediately - the ProfileScreen will refresh automatically
+      navigation.goBack();
+      
+      // Optional: Show a brief success message (you can uncomment this if you want)
+      // Alert.alert('Success', 'Profile updated successfully!');
     } catch (error) {
       console.error('Error saving profile:', error);
       Alert.alert('Error', 'Failed to update profile. Please try again.');

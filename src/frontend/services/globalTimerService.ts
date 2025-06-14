@@ -1,4 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { processDailyChallengeResolution } from './dailyChallengeService';
+import { getNewOpponent } from './opponentService';
+import supabase from '../../lib/supabase';
 
 // Storage keys for persistent timers
 const NEXT_OPPONENT_TIME_KEY = 'next_opponent_time';
@@ -44,7 +47,7 @@ class GlobalTimerService {
       if (nextOpponentTimeStr) {
         this.nextOpponentTime = parseInt(nextOpponentTimeStr);
       } else {
-        // Set initial next opponent time (20 minutes from now for MVP)
+        // Set initial next opponent time (5 minutes from now for development)
         await this.setNextOpponentTime();
       }
 
@@ -79,62 +82,84 @@ class GlobalTimerService {
     }
   }
 
-  // Set next opponent time (20 minutes from now for MVP)
+  // Set next opponent time (5 minutes from now for development)
   private async setNextOpponentTime() {
     const now = Date.now();
-    this.nextOpponentTime = now + (20 * 60 * 1000); // 20 minutes in milliseconds
+    this.nextOpponentTime = now + (5 * 60 * 1000); // 5 minutes in milliseconds
     await AsyncStorage.setItem(NEXT_OPPONENT_TIME_KEY, this.nextOpponentTime.toString());
     this.notifyListeners();
   }
 
   // Handle opponent switching when timer expires
   private async handleOpponentSwitch() {
-    console.log('🔄 Opponent timer expired - switching opponent and resetting daily stats');
+    console.log('🔄 Opponent timer expired - switching opponent and processing challenge resolution');
     
     try {
-      // Get a new opponent (for now, will be same user since only one in DB)
-      const newOpponentId = await this.selectNewOpponent();
+      // Get current user ID from supabase session (more reliable than AsyncStorage)
+      const { data: { user } } = await supabase.getUser();
       
-      if (newOpponentId) {
+      if (!user || !user.id) {
+        console.error('🔄 No current user ID found - cannot process opponent switch');
+        return;
+      }
+      
+      const currentUserId = user.id;
+
+      // Process daily challenge resolution if we have a current opponent
+      if (this.currentOpponentId) {
+        console.log('🔄 Processing daily challenge resolution for timer expiration...');
+        const resolutionResult = await processDailyChallengeResolution(currentUserId, this.currentOpponentId);
+        
+        if (resolutionResult.success && resolutionResult.result) {
+          console.log('🔄 Challenge resolution completed:', resolutionResult.result);
+        } else {
+          console.error('🔄 Challenge resolution failed:', resolutionResult.error);
+        }
+      }
+
+      // Get a new opponent using the opponent service
+      const newOpponent = await getNewOpponent(currentUserId);
+      
+      if (newOpponent) {
         // Update current opponent
-        this.currentOpponentId = newOpponentId;
-        await AsyncStorage.setItem(CURRENT_OPPONENT_ID_KEY, newOpponentId);
+        this.currentOpponentId = newOpponent.id;
+        await AsyncStorage.setItem(CURRENT_OPPONENT_ID_KEY, newOpponent.id);
         
         // Mark stats reset time
         const now = Date.now();
         this.lastStatsResetTime = now;
         await AsyncStorage.setItem(DAILY_STATS_RESET_KEY, now.toString());
         
+        // Reset the timer for the new opponent period
+        await this.setNextOpponentTime();
+        console.log('⏰ Timer reset for new opponent period');
+        
         // Notify all opponent switch listeners
         this.opponentSwitchListeners.forEach(listener => {
-          listener.onOpponentSwitch(newOpponentId);
+          listener.onOpponentSwitch(newOpponent.id);
         });
         
-        console.log('🔄 Opponent switched to:', newOpponentId);
+        console.log('🔄 Opponent switched to:', newOpponent.id);
         console.log('📊 Daily stats reset at:', new Date(now).toISOString());
+      } else {
+        console.error('🔄 Failed to get new opponent');
       }
     } catch (error) {
       console.error('Error handling opponent switch:', error);
     }
   }
 
-  // Select a new opponent (placeholder - will select from available users)
+  // This method is no longer needed as we use the opponent service directly
+  // Keeping it for backward compatibility but it's deprecated
   private async selectNewOpponent(): Promise<string | null> {
-    // TODO: In the future, implement logic to:
-    // 1. Fetch all users from database
-    // 2. Filter out current user
-    // 3. Select random opponent
-    // 4. Avoid recent opponents if possible
-    
-    // For now, return the same opponent ID since there's only one user
-    // This will still trigger stats reset
+    console.warn('selectNewOpponent is deprecated - use opponent service directly');
     return this.currentOpponentId;
   }
 
   // Get time remaining until next opponent
   getNextOpponentTimeRemaining(): string {
     if (!this.nextOpponentTime) {
-      return '00:20:00';
+      return '00:05:00';
     }
 
     const now = Date.now();
@@ -144,7 +169,7 @@ class GlobalTimerService {
       // Time expired - handle opponent switch and reset timer
       this.handleOpponentSwitch();
       this.setNextOpponentTime();
-      return '00:20:00';
+      return '00:05:00';
     }
 
     // Convert to HH:MM:SS format

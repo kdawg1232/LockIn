@@ -171,6 +171,12 @@ class ActivityTrackingService {
                 }
                 userIdToQuery = user.id;
             }
+            
+            // Validate user ID
+            if (!userIdToQuery || userIdToQuery.trim() === '') {
+                console.error('🏃 Invalid user ID provided to getDailyActivity:', userIdToQuery);
+                return null;
+            }
 
             // For now, we'll fetch all records for the date and filter by user_id
             // In a production app with proper Supabase client, this would be optimized

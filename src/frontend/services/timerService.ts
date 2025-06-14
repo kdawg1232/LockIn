@@ -1,4 +1,5 @@
 import supabase from '../../lib/supabase';
+import globalTimerService from './globalTimerService';
 
 // Interface for focus session data
 export interface FocusSession {
@@ -195,6 +196,12 @@ export const addCoinTransaction = async (
  */
 export const getUserTotalCoins = async (userId: string): Promise<{ totalCoins: number; error: string | null }> => {
   try {
+    // Validate userId parameter
+    if (!userId || userId.trim() === '') {
+      console.error('💰 Invalid user ID provided to getUserTotalCoins:', userId);
+      return { totalCoins: 0, error: 'Invalid user ID' };
+    }
+    
     // Note: This would ideally use a Supabase RPC function for better performance
     // For now, we'll fetch all transactions and calculate client-side
     const result = await supabase
@@ -218,8 +225,8 @@ export const getUserTotalCoins = async (userId: string): Promise<{ totalCoins: n
 };
 
 /**
- * Get user's coin transactions for today
- * Returns transactions from the current day for stats display
+ * Get user's coin transactions since the last stats reset
+ * Returns transactions from the last stats reset time for current daily challenge
  */
 export const getTodaysCoinTransactions = async (userId: string): Promise<{ 
   coinsGained: number; 
@@ -228,52 +235,69 @@ export const getTodaysCoinTransactions = async (userId: string): Promise<{
   error: string | null 
 }> => {
   try {
-    console.log('📊 Fetching today\'s coin transactions for user:', userId);
+    // Validate userId parameter
+    if (!userId || userId.trim() === '') {
+      console.error('📊 Invalid user ID provided:', userId);
+      return { coinsGained: 0, coinsLost: 0, netCoins: 0, error: 'Invalid user ID' };
+    }
     
-    // Get start and end of today in ISO format
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+    console.log('📊 Fetching coin transactions since last stats reset for user:', userId);
+    
+    // Get the last stats reset time from global timer service
+    const lastStatsResetTime = globalTimerService.getLastStatsResetTime();
+    
+    // Use stats reset time if available, otherwise use start of today
+    let startTime: Date;
+    if (lastStatsResetTime) {
+      startTime = new Date(lastStatsResetTime);
+      console.log('📊 Using stats reset time:', startTime.toISOString());
+    } else {
+      // Fallback to start of today
+      const today = new Date();
+      startTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      console.log('📊 Using start of today (no reset time found):', startTime.toISOString());
+    }
+    
+    const endTime = new Date(); // Current time
+    
+    console.log('📊 Date range:', { startTime: startTime.toISOString(), endTime: endTime.toISOString() });
 
-    console.log('📊 Date range:', { startOfDay, endOfDay });
-
-    // Note: This would ideally use date range filtering in Supabase
-    // For now, we'll fetch all transactions and filter client-side
+    // Fetch all transactions for user (would be optimized with date filtering in production)
     const result = await supabase
       .from('coin_transactions')
       .select('amount, created_at')
       .eq('user_id', userId);
 
     if (result.error) {
-      console.error('📊 Error fetching today\'s transactions:', result.error);
+      console.error('📊 Error fetching transactions:', result.error);
       return { coinsGained: 0, coinsLost: 0, netCoins: 0, error: result.error };
     }
 
     console.log('📊 All transactions fetched:', result.data?.length || 0);
 
-    // Filter transactions for today and calculate stats
-    const todaysTransactions = result.data?.filter((transaction: any) => {
+    // Filter transactions since the last stats reset
+    const relevantTransactions = result.data?.filter((transaction: any) => {
       const transactionDate = new Date(transaction.created_at);
-      return transactionDate >= new Date(startOfDay) && transactionDate < new Date(endOfDay);
+      return transactionDate >= startTime && transactionDate <= endTime;
     }) || [];
 
-    console.log('📊 Today\'s transactions:', todaysTransactions);
+    console.log('📊 Transactions since last reset:', relevantTransactions.length);
 
-    const coinsGained = todaysTransactions
+    const coinsGained = relevantTransactions
       .filter((t: any) => t.amount > 0)
       .reduce((sum: number, t: any) => sum + t.amount, 0);
     
-    const coinsLost = Math.abs(todaysTransactions
+    const coinsLost = Math.abs(relevantTransactions
       .filter((t: any) => t.amount < 0)
       .reduce((sum: number, t: any) => sum + t.amount, 0));
     
     const netCoins = coinsGained - coinsLost;
 
-    console.log('📊 Calculated stats:', { coinsGained, coinsLost, netCoins });
+    console.log('📊 Calculated stats since reset:', { coinsGained, coinsLost, netCoins });
 
     return { coinsGained, coinsLost, netCoins, error: null };
   } catch (error) {
     console.error('📊 Error in getTodaysCoinTransactions:', error);
-    return { coinsGained: 0, coinsLost: 0, netCoins: 0, error: 'Failed to fetch today\'s transactions' };
+    return { coinsGained: 0, coinsLost: 0, netCoins: 0, error: 'Failed to fetch transactions since reset' };
   }
 }; 

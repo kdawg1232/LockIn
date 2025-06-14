@@ -35,6 +35,9 @@ create policy "Enable insert for authentication users only" on public.users
   for insert
   with check (true);
 
+-- Grant proper permissions
+GRANT SELECT, INSERT, UPDATE ON public.users TO authenticated;
+
 -- Create indexes for performance
 create index users_email_idx on public.users (email);
 create index users_username_idx on public.users (username);
