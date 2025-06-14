@@ -17,6 +17,7 @@ export type RootStackParamList = {
   Timer: undefined;
   Profile: undefined;
   Community: undefined;
+  SettingsPrivacy: undefined; // New screen for task 1.31
 };
 
 export type AuthStackParamList = {

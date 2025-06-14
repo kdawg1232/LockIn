@@ -2,11 +2,14 @@ import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import supabase from '../../lib/supabase';
 import { SessionContext } from '../navigation/RootNavigator';
 import { NavigationBar } from '../components/NavigationBar';
+import { getUserProfile, UserProfileData } from '../services/profileService';
+import { getRecentChallengeHistory, CalendarDay } from '../services/challengeHistoryService';
 
-// Interface for user profile data
+// Interface for enhanced user profile data
 interface UserProfile {
   id: string;
   email: string;
@@ -16,7 +19,13 @@ interface UserProfile {
   university: string;
   major: string;
   avatarUrl?: string;
+  focusScore: number;
+  winStreak: number;
+  totalCoins: number;
 }
+
+// Type for calendar view
+type CalendarView = 'Week' | 'Month' | 'Year';
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -29,6 +38,11 @@ export const ProfileScreen: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   
+  // Calendar state
+  const [calendarData, setCalendarData] = useState<CalendarDay[]>([]);
+  const [selectedCalendarView, setSelectedCalendarView] = useState<CalendarView>('Month');
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  
   // Edit form state
   const [editForm, setEditForm] = useState({
     firstName: '',
@@ -37,7 +51,7 @@ export const ProfileScreen: React.FC = () => {
     major: ''
   });
 
-  // Fetch user profile data from database
+  // Fetch enhanced user profile data including new fields
   const fetchUserProfile = async () => {
     try {
       const { data: { user } } = await supabase.getUser();
@@ -46,28 +60,30 @@ export const ProfileScreen: React.FC = () => {
         return;
       }
 
-      // Get user profile data from users table
-      const { data: profileData, error } = await supabase
-        .from('users')
-        .select('id, email, username, first_name, last_name, university, major, avatar_url')
-        .eq('id', user.id);
+      console.log('🔍 Fetching enhanced profile for user:', user.id);
+      
+      // Use the new profile service to get enhanced data
+      const { data: profileData, error } = await getUserProfile(user.id);
 
       if (error) {
-        console.error('Error fetching user profile:', error);
+        console.error('Error fetching enhanced profile:', error);
         Alert.alert('Error', 'Failed to load profile data');
         return;
       }
 
-      if (profileData && Array.isArray(profileData) && profileData.length > 0) {
+      if (profileData) {
         const profile: UserProfile = {
-          id: profileData[0].id,
-          email: profileData[0].email,
-          username: profileData[0].username,
-          firstName: profileData[0].first_name || '',
-          lastName: profileData[0].last_name || '',
-          university: profileData[0].university || '',
-          major: profileData[0].major || '',
-          avatarUrl: profileData[0].avatar_url
+          id: profileData.id,
+          email: profileData.email,
+          username: profileData.username,
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          university: profileData.university,
+          major: profileData.major,
+          avatarUrl: profileData.avatarUrl,
+          focusScore: profileData.focusScore,
+          winStreak: profileData.winStreak,
+          totalCoins: profileData.totalCoins
         };
         
         setUserProfile(profile);
@@ -79,12 +95,43 @@ export const ProfileScreen: React.FC = () => {
           university: profile.university,
           major: profile.major
         });
+
+        console.log('🔍 Enhanced profile loaded:', {
+          focusScore: profile.focusScore,
+          winStreak: profile.winStreak,
+          totalCoins: profile.totalCoins
+        });
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
       Alert.alert('Error', 'Failed to load profile data');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch calendar data for the current view
+  const fetchCalendarData = async () => {
+    try {
+      const { data: { user } } = await supabase.getUser();
+      if (!user) return;
+
+      setIsLoadingCalendar(true);
+      console.log('📅 Fetching calendar data for profile screen');
+      
+      const { data: historyData, error } = await getRecentChallengeHistory(user.id);
+      
+      if (error) {
+        console.error('Error fetching calendar data:', error);
+        return;
+      }
+
+      setCalendarData(historyData || []);
+      console.log('📅 Calendar data loaded:', historyData?.length || 0, 'days');
+    } catch (error) {
+      console.error('Error fetching calendar data:', error);
+    } finally {
+      setIsLoadingCalendar(false);
     }
   };
 
@@ -163,6 +210,11 @@ export const ProfileScreen: React.FC = () => {
     );
   };
 
+  // Handle settings navigation (task 1.31)
+  const handleSettingsNavigation = () => {
+    navigation.navigate('SettingsPrivacy');
+  };
+
   // Handle cancel editing
   const handleCancelEdit = () => {
     // Reset edit form to original values
@@ -177,9 +229,37 @@ export const ProfileScreen: React.FC = () => {
     setIsEditing(false);
   };
 
-  // Initialize profile data on component mount
+  // Render calendar square for a specific day
+  const renderCalendarSquare = (day: CalendarDay, index: number) => {
+    let squareStyle = styles.calendarSquareEmpty;
+    
+    if (day.outcome === 'win') {
+      squareStyle = styles.calendarSquareWin;
+    } else if (day.outcome === 'loss') {
+      squareStyle = styles.calendarSquareLoss;
+    }
+
+    // Show day number for the last 7 days
+    const today = new Date();
+    const dayDate = new Date(day.date);
+    const daysDiff = Math.floor((today.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24));
+    const showDayNumber = daysDiff <= 6;
+
+    return (
+      <View key={day.date} style={[styles.calendarSquare, squareStyle]}>
+        {showDayNumber && (
+          <Text style={styles.calendarDayNumber}>
+            {dayDate.getDate()}
+          </Text>
+        )}
+      </View>
+    );
+  };
+
+  // Initialize profile data and calendar on component mount
   useEffect(() => {
     fetchUserProfile();
+    fetchCalendarData();
   }, []);
 
   // Loading state
@@ -225,10 +305,92 @@ export const ProfileScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Title */}
-        <Text style={styles.title}>Profile</Text>
+        {/* Header with Title and Settings Icon */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Profile</Text>
+          <TouchableOpacity 
+            style={styles.settingsButton}
+            onPress={handleSettingsNavigation}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="settings-outline" size={24} color="#111827" />
+          </TouchableOpacity>
+        </View>
 
-        {/* Profile Card */}
+        {/* Stats Cards Row (Tasks 1.29-1.30) */}
+        <View style={styles.statsRow}>
+          {/* Focus Score Card */}
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{userProfile.focusScore}</Text>
+            <Text style={styles.statLabel}>Focus{'\n'}Score</Text>
+          </View>
+
+          {/* Win Streak Card */}
+          <View style={styles.statCard}>
+            <Text style={[styles.statNumber, styles.winStreakNumber]}>{userProfile.winStreak}</Text>
+            <Text style={styles.statLabel}>Win{'\n'}Streak</Text>
+          </View>
+
+          {/* Total Coins Card */}
+          <View style={styles.statCard}>
+            <Text style={[styles.statNumber, styles.totalCoinsNumber]}>{userProfile.totalCoins}</Text>
+            <Text style={styles.statLabel}>Total{'\n'}Coins</Text>
+          </View>
+        </View>
+
+        {/* Challenge History Calendar (Task 1.32) */}
+        <View style={styles.calendarCard}>
+          <View style={styles.calendarHeader}>
+            <Text style={styles.calendarTitle}>Challenge History</Text>
+            <View style={styles.calendarViewButtons}>
+              {(['Week', 'Month', 'Year'] as CalendarView[]).map((view) => (
+                <TouchableOpacity
+                  key={view}
+                  style={[
+                    styles.calendarViewButton,
+                    selectedCalendarView === view && styles.calendarViewButtonActive
+                  ]}
+                  onPress={() => setSelectedCalendarView(view)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.calendarViewButtonText,
+                      selectedCalendarView === view && styles.calendarViewButtonTextActive
+                    ]}
+                  >
+                    {view}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Calendar Grid */}
+          {isLoadingCalendar ? (
+            <View style={styles.calendarLoading}>
+              <ActivityIndicator size="small" color="#A67C52" />
+            </View>
+          ) : (
+            <View style={styles.calendarGrid}>
+              {calendarData.slice(-31).map((day, index) => renderCalendarSquare(day, index))}
+            </View>
+          )}
+
+          {/* Calendar Legend */}
+          <View style={styles.calendarLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSquare, styles.calendarSquareWin]} />
+              <Text style={styles.legendText}>Win</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSquare, styles.calendarSquareLoss]} />
+              <Text style={styles.legendText}>Loss</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Profile Information Card */}
         <View style={styles.profileCard}>
           {/* Profile Picture */}
           <View style={styles.avatarContainer}>
@@ -418,14 +580,199 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
 
+  // Header with settings icon
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+
   // Title
   title: {
     fontSize: 26,
     fontWeight: 'bold',
     color: '#111827', // gray-900 (dark text)
+    fontFamily: 'Inter',
+  },
+
+  // Settings button (task 1.31)
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  // Stats cards row (tasks 1.29-1.30)
+  statsRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 12,
+  },
+
+  statCard: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4F46E5', // Blue for focus score
+    fontFamily: 'Inter',
+    marginBottom: 4,
+  },
+
+  winStreakNumber: {
+    color: '#059669', // Green for win streak
+  },
+
+  totalCoinsNumber: {
+    color: '#DC2626', // Red for total coins
+  },
+
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280', // gray-500
     textAlign: 'center',
     fontFamily: 'Inter',
+    lineHeight: 16,
+  },
+
+  // Calendar card (task 1.32)
+  calendarCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    fontFamily: 'Inter',
+  },
+
+  calendarViewButtons: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    padding: 4,
+  },
+
+  calendarViewButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+
+  calendarViewButtonActive: {
+    backgroundColor: '#111827',
+  },
+
+  calendarViewButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+
+  calendarViewButtonTextActive: {
+    color: '#ffffff',
+  },
+
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: 16,
+  },
+
+  calendarSquare: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  calendarSquareEmpty: {
+    backgroundColor: '#F3F4F6', // gray-100
+  },
+
+  calendarSquareWin: {
+    backgroundColor: '#10B981', // green-500
+  },
+
+  calendarSquareLoss: {
+    backgroundColor: '#EF4444', // red-500
+  },
+
+  calendarDayNumber: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#ffffff',
+    fontFamily: 'Inter',
+  },
+
+  calendarLoading: {
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  calendarLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+  },
+
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  legendSquare: {
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+  },
+
+  legendText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'Inter',
   },
 
   // Profile card styles

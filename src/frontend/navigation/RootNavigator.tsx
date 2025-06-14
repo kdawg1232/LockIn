@@ -15,6 +15,7 @@ import { UserStatsScreen } from '../screens/UserStatsScreen';
 import { TimerDistractionScreen } from '../screens/TimerDistractionScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { CommunityScreen } from '../screens/CommunityScreen';
+import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
 import { View, Text } from 'react-native';
 
 type RootStackParamList = {
@@ -34,6 +35,7 @@ type RootStackParamList = {
   Timer: undefined;
   Profile: undefined;
   Community: undefined;
+  SettingsPrivacy: undefined; // New screen for task 1.31
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -277,6 +279,14 @@ export const RootNavigator = () => {
               <Stack.Screen 
                 name="Community" 
                 component={CommunityScreen}
+                options={{
+                  animation: 'slide_from_right',
+                  animationDuration: 300,
+                }}
+              />
+              <Stack.Screen 
+                name="SettingsPrivacy" 
+                component={SettingsPrivacyScreen}
                 options={{
                   animation: 'slide_from_right',
                   animationDuration: 300,

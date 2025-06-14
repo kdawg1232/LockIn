@@ -69,4 +69,13 @@ Goal: Users can sign up / sign in with Supabase auth and land on the bare-bones 
 
 ✅ 1.28 On the Stats screen, add the following image to the bottom below the lock in button. The first one is Home button, when this is clicked, it takes to the Stats screen. When the profile button is clicked in the middle, the user goes to the profile screen. When the user clicks on the community button, it should lead to a new screen. Call this the CommunityScreen. On this page, just have "Coming soon!" (2024-12-26)
 
-1.29 
+✅ 1.29 Profile screen needs to be changed a bit. When the User clicks on the profile screen on the navigational bar, it should lead to the profile screen where it shows the Focus Score and Win Streak. This should be part of the user database which gets updated if the user wins the challenge for the day. If they win, the win streak goes up by +1 and the focus score goes up +10. When the lose, the win streak goes back to 0 and the focus score goes down by -5. (2024-12-26)
+
+✅ 1.30 Add in the total coins count as well, this field should be in the database as well. (2024-12-26)
+
+✅ 1.31 At the top right there should represents a gear icon. If the user clicks on this, it should go to a new screen called Settings and Privacy. On this screen there should be a clickable word called Edit Profile, which will allow user to edit the profile. Below this, there should be anotherc clickable word called Delete Data which will allow the user to delete all their data. 
+Below this, Report Content: users can report a user. The developer need to be able to monitor the content and remove or block the user. 
+Below this, there should be terms of service and privacy policy (2024-12-26)
+
+✅ 1.32 Add in the calendar (a bunch of squares that represent the past 31 or 30 days). If the user wins, they get a green square below that day. If the user loses, they get a red square. There should be a week view, month view, and year view. This should be stored into a database as well. (2024-12-26) 
+
