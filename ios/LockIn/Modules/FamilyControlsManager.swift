@@ -27,7 +27,7 @@ class FamilyControlsManager: NSObject {
                 // Request authorization for Family Controls
                 try await center.requestAuthorization(for: .individual)
                 
-                DispatchQueue.main.async {
+                await MainActor.run {
                     let authStatus = self.center.authorizationStatus
                     resolve([
                         "status": self.authorizationStatusString(authStatus),
@@ -35,7 +35,7 @@ class FamilyControlsManager: NSObject {
                     ])
                 }
             } catch {
-                DispatchQueue.main.async {
+                await MainActor.run {
                     reject("AUTHORIZATION_ERROR", "Failed to request authorization: \(error.localizedDescription)", error)
                 }
             }
@@ -73,8 +73,10 @@ class FamilyControlsManager: NSObject {
             return
         }
         
-        // Apply restrictions using selected applications
-        store.shield.applications = selectedApps
+        // Apply restrictions using selected applications  
+        // Extract ApplicationTokens from Application objects for ManagedSettings
+        let applicationTokens: Set<ApplicationToken> = Set(selectedApps.compactMap { $0.token })
+        store.shield.applications = applicationTokens
         store.shield.applicationCategories = ShieldSettings.ActivityCategoryPolicy.specific(Set(), except: Set())
         
         resolve([
@@ -99,7 +101,7 @@ class FamilyControlsManager: NSObject {
         _ resolve: @escaping RCTPromiseResolveBlock,
         rejecter reject: @escaping RCTPromiseRejectBlock
     ) {
-        let isBlocking = !store.shield.applications.isEmpty
+        let isBlocking = !(store.shield.applications?.isEmpty ?? true)
         resolve(["isBlocking": isBlocking])
     }
     

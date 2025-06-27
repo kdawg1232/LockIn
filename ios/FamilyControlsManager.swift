@@ -73,8 +73,10 @@ class FamilyControlsManager: NSObject {
             return
         }
         
-        // Apply restrictions using selected applications
-        store.shield.applications = selectedApps
+        // Apply restrictions using selected applications  
+        // Extract ApplicationTokens from Application objects for ManagedSettings
+        let applicationTokens: Set<ApplicationToken> = Set(selectedApps.compactMap { $0.token })
+        store.shield.applications = applicationTokens
         store.shield.applicationCategories = ShieldSettings.ActivityCategoryPolicy.specific(Set(), except: Set())
         
         resolve([

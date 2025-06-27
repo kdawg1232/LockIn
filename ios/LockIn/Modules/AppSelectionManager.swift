@@ -11,8 +11,8 @@ class AppSelectionManager: NSObject {
         return true
     }
     
-    // Store selected applications for blocking
-    static var selectedApplications: Set<Token<Application>> = []
+    // Store selected applications for blocking (raw from picker)
+    static var selectedApplications: Set<Application> = []
     
     @objc
     func showAppSelectionModal(
@@ -49,7 +49,7 @@ class AppSelectionManager: NSObject {
 // SwiftUI view for app selection
 struct AppSelectionView: View {
     @State private var selection = FamilyActivitySelection()
-    let onComplete: (Set<Token<Application>>) -> Void
+    let onComplete: (Set<Application>) -> Void
     @Environment(\.presentationMode) var presentationMode
     
     var body: some View {
