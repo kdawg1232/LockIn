@@ -1,0 +1,25 @@
+# Ignore development files during EAS build
+**/.expo/*
+.expo/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Development and testing files
+.env.local
+.env.development
+*.log
+.DS_Store
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/ 

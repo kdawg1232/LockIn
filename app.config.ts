@@ -9,7 +9,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'light',
   assetBundlePatterns: ['**/*'],
   plugins: [
-    "expo-secure-store"
+    "expo-secure-store",
+    "expo-dev-client" // Add this for bare workflow
   ],
   scheme: 'lockin',
   extra: {
@@ -23,8 +24,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     associatedDomains: [
       'applinks:lockin.app'
     ],
+    // Add entitlements for Family Controls
+    entitlements: {
+      "com.apple.developer.family-controls": true
+    },
     infoPlist: {
-      ITSAppUsesNonExemptEncryption: false
+      ITSAppUsesNonExemptEncryption: false,
+      // Add required usage descriptions
+      NSFamilyControlsUsageDescription: "LockIn needs access to Screen Time to help you focus by temporarily blocking distracting apps during your focus sessions.",
+      NSScreenTimeUsageDescription: "LockIn uses Screen Time to track your app usage and provide focus session rewards based on your productivity."
     },
   },
   android: {
