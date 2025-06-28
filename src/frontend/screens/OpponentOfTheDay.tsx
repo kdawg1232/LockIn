@@ -1,15 +1,16 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, Modal, Animated } from 'react-native';
+import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getOpponentOfTheDay, getNewOpponent } from '../services/opponentService';
 import { getTodaysCoinTransactions } from '../services/timerService';
-import globalTimerService, { OpponentSwitchCallback } from '../services/globalTimerService';
+import globalTimerService, { OpponentSwitchCallback, TIMER_EVENTS } from '../services/globalTimerService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabase from '../../lib/supabase';
 import { colors, commonStyles, spacing, typography } from '../styles/theme';
 import { SessionContext } from '../navigation/RootNavigator';
 import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
+import { useGlobalModal } from '../contexts/GlobalModalContext';
 
 // Storage key for acceptance state
 const OPPONENT_ACCEPTANCE_KEY = 'opponent_accepted_';
@@ -59,7 +60,6 @@ export const OpponentOfTheDay: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>('00:05:00');
-  const [showResultsModal, setShowResultsModal] = useState(false);
   const [userStats, setUserStats] = useState({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
   const [opponentStats, setOpponentStats] = useState({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
   
@@ -72,6 +72,8 @@ export const OpponentOfTheDay: React.FC = () => {
   // Animation refs
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+
+  const { showChallengeResults } = useGlobalModal();
 
   // Start pulsing animation
   const startPulseAnimation = () => {
@@ -309,15 +311,20 @@ export const OpponentOfTheDay: React.FC = () => {
         netCoins: opponentResult.netCoins || 0
       });
 
-      setShowResultsModal(true);
+      // Use the global modal instead of local modal
+      showChallengeResults({
+        won: userResult.netCoins > (opponentResult.netCoins || 0),
+        opponentName: opponent ? `${opponent.firstName} ${opponent.lastName}` : 'Opponent',
+        focusScore: userResult.netCoins || 0,
+        opponentScore: opponentResult.netCoins || 0,
+      }, handleCloseResults);
     } catch (error) {
       console.error('Error fetching final stats:', error);
     }
   };
 
-  // Handle results modal close
+  // Handle results modal close (now handled by global modal)
   const handleCloseResults = async () => {
-    setShowResultsModal(false);
     // Reset acceptance state and get new opponent
     setHasAcceptedOpponent(false);
     setIsNewOpponent(true);
@@ -350,6 +357,19 @@ export const OpponentOfTheDay: React.FC = () => {
       stopPulseAnimation();
     };
   }, []);
+
+  useEffect(() => {
+    // Listen for challenge results
+    const resultListener = (result: any) => {
+      showChallengeResults(result);
+    };
+
+    globalTimerService.on(TIMER_EVENTS.CHALLENGE_RESULT, resultListener);
+
+    return () => {
+      globalTimerService.removeListener(TIMER_EVENTS.CHALLENGE_RESULT, resultListener);
+    };
+  }, [showChallengeResults]);
 
   // Render opponent card with conditional animation
   const renderOpponentCard = () => {
@@ -540,52 +560,7 @@ export const OpponentOfTheDay: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Results Modal */}
-        <Modal
-          visible={showResultsModal}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => handleCloseResults()}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Daily Challenge Results!</Text>
-              
-              {/* User Stats */}
-              <View style={styles.resultsSection}>
-                <Text style={styles.resultsName}>You</Text>
-                <Text style={styles.resultsStats}>
-                  Net Coins: {userStats.netCoins >= 0 ? '+' : ''}{userStats.netCoins}
-                </Text>
-              </View>
 
-              <Text style={styles.resultsVs}>VS</Text>
-
-              {/* Opponent Stats */}
-              <View style={styles.resultsSection}>
-                <Text style={styles.resultsName}>{opponent?.firstName} {opponent?.lastName}</Text>
-                <Text style={styles.resultsStats}>
-                  Net Coins: {opponentStats.netCoins >= 0 ? '+' : ''}{opponentStats.netCoins}
-                </Text>
-              </View>
-
-              {/* Winner Declaration */}
-              <Text style={styles.winnerText}>
-                {userStats.netCoins > opponentStats.netCoins ? 'You won! 🎉' :
-                 userStats.netCoins < opponentStats.netCoins ? `${opponent?.firstName} won! 🏆` :
-                 "It's a tie! 🤝"}
-              </Text>
-
-              <TouchableOpacity 
-                style={styles.modalButton}
-                onPress={handleCloseResults}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalButtonText}>Continue</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
         </View>
       </View>
     </SafeAreaView>
@@ -779,92 +754,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 
-  modalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 32,
-    width: '85%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 16,
-  },
-
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 24,
-    textAlign: 'center',
-    fontFamily: 'Inter',
-  },
-
-  resultsSection: {
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-
-  resultsName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
-    fontFamily: 'Inter',
-  },
-
-  resultsStats: {
-    fontSize: 18,
-    color: '#A67C52',
-    fontFamily: 'Inter',
-  },
-
-  resultsVs: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#A67C52',
-    marginVertical: 8,
-    fontFamily: 'Inter',
-  },
-
-  winnerText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginTop: 24,
-    marginBottom: 32,
-    textAlign: 'center',
-    fontFamily: 'Inter',
-  },
-
-  modalButton: {
-    backgroundColor: '#111827',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 50,
-    width: '100%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  modalButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
 
   logoSection: {
     alignItems: 'center',

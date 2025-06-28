@@ -2,12 +2,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { processDailyChallengeResolution } from './dailyChallengeService';
 import { getNewOpponent } from './opponentService';
 import supabase from '../../lib/supabase';
+import { EventEmitter } from 'events';
+import { AppState } from 'react-native';
+import { ChallengeResult, ChallengeResolutionResponse } from '../types/challenge';
 
 // Storage keys for persistent timers
 const NEXT_OPPONENT_TIME_KEY = 'next_opponent_time';
 const ACTIVE_FOCUS_SESSION_KEY = 'active_focus_session';
 const CURRENT_OPPONENT_ID_KEY = 'current_opponent_id';
 const DAILY_STATS_RESET_KEY = 'daily_stats_reset_time';
+
+// Event name constants
+export const TIMER_EVENTS = {
+  OPPONENT_SWITCH: 'opponentSwitch',
+  CHALLENGE_RESULT: 'challengeResult',
+  FOCUS_SESSION_UPDATE: 'focusSessionUpdate',
+  TIMER_UPDATE: 'timerUpdate',
+} as const;
 
 // Interface for active focus session data
 export interface ActiveFocusSession {
@@ -23,20 +34,71 @@ export interface OpponentSwitchCallback {
   onOpponentSwitch: (newOpponentId: string) => void;
 }
 
+interface ChallengeResultEvent {
+  won: boolean;
+  opponentName: string;
+  focusScore: number; // Coins gained by user during this challenge
+  opponentScore: number; // Coins gained by opponent during this challenge
+}
+
 /**
  * Global Timer Service
  * Manages persistent timers that work regardless of app state
  */
-class GlobalTimerService {
+class GlobalTimerService extends EventEmitter {
   private nextOpponentTime: number | null = null;
   private activeFocusSession: ActiveFocusSession | null = null;
   private currentOpponentId: string | null = null;
   private lastStatsResetTime: number | null = null;
-  private listeners: Set<() => void> = new Set();
-  private opponentSwitchListeners: Set<OpponentSwitchCallback> = new Set();
+  private timer: NodeJS.Timeout | null = null;
+  private updateInterval: NodeJS.Timeout | null = null;
+  private appStateSubscription: any = null;
 
   constructor() {
+    super();
     this.initialize();
+    this.startUpdateInterval();
+    this.setupAppStateListener();
+  }
+
+  private setupAppStateListener() {
+    this.appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        this.startUpdateInterval();
+      } else {
+        this.cleanup();
+      }
+    });
+  }
+
+  private startUpdateInterval() {
+    // Clear any existing interval
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+    }
+
+    // Update every second
+    this.updateInterval = setInterval(() => {
+      this.checkTimers();
+    }, 1000);
+  }
+
+  private checkTimers() {
+    // Check opponent timer
+    if (this.nextOpponentTime && Date.now() >= this.nextOpponentTime) {
+      this.handleOpponentSwitch();
+    }
+
+    // Check focus session
+    if (this.activeFocusSession && this.isFocusSessionCompleted()) {
+      this.completeFocusSession();
+    }
+
+    // Emit timer update
+    this.emit(TIMER_EVENTS.TIMER_UPDATE, {
+      opponentTimeRemaining: this.getNextOpponentTimeRemaining(),
+      focusSessionRemaining: this.getFocusSessionTimeRemaining(),
+    });
   }
 
   // Initialize timers from storage
@@ -68,18 +130,31 @@ class GlobalTimerService {
       if (activeFocusSessionStr) {
         this.activeFocusSession = JSON.parse(activeFocusSessionStr);
         
-        // Check if session has expired (should have completed by now)
-        const now = Date.now();
-        const sessionEndTime = this.activeFocusSession!.startTime + (this.activeFocusSession!.duration * 1000);
-        
-        if (now >= sessionEndTime) {
-          // Session should have completed - mark as completed
+        // Check if session has expired
+        if (this.isFocusSessionCompleted()) {
           await this.completeFocusSession();
         }
       }
     } catch (error) {
       console.error('Error initializing global timers:', error);
     }
+  }
+
+  // Cleanup method to be called when the app is backgrounded
+  public cleanup() {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
+    if (this.appStateSubscription) {
+      this.appStateSubscription.remove();
+      this.appStateSubscription = null;
+    }
+    this.removeAllListeners();
   }
 
   // Set next opponent time (5 minutes from now for development)
@@ -92,60 +167,48 @@ class GlobalTimerService {
 
   // Handle opponent switching when timer expires
   private async handleOpponentSwitch() {
-    console.log('🔄 Opponent timer expired - switching opponent and processing challenge resolution');
-    
-    try {
-      // Get current user ID from supabase session (more reliable than AsyncStorage)
-      const { data: { user } } = await supabase.getUser();
-      
-      if (!user || !user.id) {
-        console.error('🔄 No current user ID found - cannot process opponent switch');
-        return;
-      }
-      
-      const currentUserId = user.id;
+    if (this.currentOpponentId) {
+      try {
+        const { data: { user } } = await supabase.getUser();
+        if (!user?.id) return;
 
-      // Process daily challenge resolution if we have a current opponent
-      if (this.currentOpponentId) {
-        console.log('🔄 Processing daily challenge resolution for timer expiration...');
-        const resolutionResult = await processDailyChallengeResolution(currentUserId, this.currentOpponentId);
+        // Get today's coin transactions for both users before processing resolution
+        const { getTodaysCoinTransactions } = await import('./timerService');
+        const [userStatsResult, opponentStatsResult] = await Promise.all([
+          getTodaysCoinTransactions(user.id),
+          getTodaysCoinTransactions(this.currentOpponentId)
+        ]);
+
+        const resolution = await processDailyChallengeResolution(user.id, this.currentOpponentId);
         
-        if (resolutionResult.success && resolutionResult.result) {
-          console.log('🔄 Challenge resolution completed:', resolutionResult.result);
-        } else {
-          console.error('🔄 Challenge resolution failed:', resolutionResult.error);
+        if (resolution.success && resolution.result) {
+          // Emit the challenge result for the modal to display using today's coins gained
+          this.emit(TIMER_EVENTS.CHALLENGE_RESULT, {
+            won: resolution.result.outcome === 'win',
+            opponentName: 'Opponent', // We don't have the opponent name in the result
+            focusScore: userStatsResult.netCoins || 0, // Use coins gained today, not total coins
+            opponentScore: opponentStatsResult.netCoins || 0, // Use coins gained today, not total coins
+          } as ChallengeResultEvent);
         }
-      }
 
-      // Get a new opponent using the opponent service
-      const newOpponent = await getNewOpponent(currentUserId);
-      
-      if (newOpponent) {
-        // Update current opponent
-        this.currentOpponentId = newOpponent.id;
-        await AsyncStorage.setItem(CURRENT_OPPONENT_ID_KEY, newOpponent.id);
-        
-        // Mark stats reset time
-        const now = Date.now();
-        this.lastStatsResetTime = now;
-        await AsyncStorage.setItem(DAILY_STATS_RESET_KEY, now.toString());
-        
-        // Reset the timer for the new opponent period
-        await this.setNextOpponentTime();
-        console.log('⏰ Timer reset for new opponent period');
-        
-        // Notify all opponent switch listeners
-        this.opponentSwitchListeners.forEach(listener => {
-          listener.onOpponentSwitch(newOpponent.id);
-        });
-        
-        console.log('🔄 Opponent switched to:', newOpponent.id);
-        console.log('📊 Daily stats reset at:', new Date(now).toISOString());
-      } else {
-        console.error('🔄 Failed to get new opponent');
+        // Get new opponent
+        const newOpponent = await getNewOpponent(user.id);
+        if (newOpponent) {
+          this.currentOpponentId = newOpponent.id;
+          await AsyncStorage.setItem(CURRENT_OPPONENT_ID_KEY, newOpponent.id);
+          
+          const now = Date.now();
+          this.lastStatsResetTime = now;
+          await AsyncStorage.setItem(DAILY_STATS_RESET_KEY, now.toString());
+          
+          await this.setNextOpponentTime();
+          
+          // Emit the opponent switch event
+          this.emit(TIMER_EVENTS.OPPONENT_SWITCH, newOpponent.id);
+        }
+      } catch (error) {
+        console.error('Error handling opponent switch:', error);
       }
-    } catch (error) {
-      console.error('Error handling opponent switch:', error);
     }
   }
 
@@ -266,21 +329,15 @@ class GlobalTimerService {
     }
   }
 
-  // Add listener for timer updates
-  addListener(callback: () => void) {
-    this.listeners.add(callback);
-    return () => this.listeners.delete(callback);
-  }
-
-  // Add listener for opponent switches
-  addOpponentSwitchListener(callback: OpponentSwitchCallback) {
-    this.opponentSwitchListeners.add(callback);
-    return () => this.opponentSwitchListeners.delete(callback);
-  }
-
-  // Notify all listeners of timer updates
+  // Notify listeners of specific updates
   private notifyListeners() {
-    this.listeners.forEach(callback => callback());
+    if (this.activeFocusSession) {
+      this.emit(TIMER_EVENTS.FOCUS_SESSION_UPDATE, this.activeFocusSession);
+    }
+    this.emit(TIMER_EVENTS.TIMER_UPDATE, {
+      opponentTimeRemaining: this.getNextOpponentTimeRemaining(),
+      focusSessionRemaining: this.getFocusSessionTimeRemaining(),
+    });
   }
 
   // Force refresh next opponent timer (for testing)
@@ -292,6 +349,11 @@ class GlobalTimerService {
   async forceOpponentSwitch() {
     await this.handleOpponentSwitch();
     await this.setNextOpponentTime();
+  }
+
+  // Override the default addListener to handle our specific events
+  public on(event: typeof TIMER_EVENTS[keyof typeof TIMER_EVENTS], listener: (...args: any[]) => void) {
+    return super.on(event, listener);
   }
 }
 

@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { getTodaysCoinTransactions } from '../services/timerService';
-import globalTimerService, { OpponentSwitchCallback } from '../services/globalTimerService';
+import globalTimerService, { TIMER_EVENTS } from '../services/globalTimerService';
 import supabase from '../../lib/supabase';
 import { NavigationBar } from '../components/NavigationBar';
 import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
@@ -98,7 +98,6 @@ export const StatsScreen: React.FC = () => {
             const globalOpponentId = globalTimerService.getCurrentOpponentId();
             if (globalOpponentId) {
               setOpponentId(globalOpponentId);
-              // Set opponent name (for now, just use "Opponent" since it's the same user)
               setOpponentName('Opponent');
             } else {
               // Set current user as opponent if no opponent set
@@ -195,39 +194,23 @@ export const StatsScreen: React.FC = () => {
     }
   };
 
-  // Handle opponent switch
-  const handleOpponentSwitch = (newOpponentId: string) => {
-    console.log('🔄 Opponent switch detected, new opponent:', newOpponentId);
-    setOpponentId(newOpponentId);
-    setOpponentName('Opponent'); // For now, just use generic name
-    
-    // Reset stats to 0 since daily competition restarted
-    // Note: Stats remain at 0 until new transactions occur since getTodaysCoinTransactions 
-    // now respects the stats reset time from globalTimerService
-    setUserStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
-    setOpponentStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
-    
-    console.log('📊 Stats reset to 0 for new opponent challenge period');
-    
-    // Don't fetch stats immediately - let them accumulate from the reset time
-    // The next time stats are refreshed (e.g., on screen focus), they will be calculated
-    // from the reset time forward
-  };
-
-  // Setup opponent switch listener
+  // Listen for opponent switches using the new event emitter pattern
   useEffect(() => {
-    const callback: OpponentSwitchCallback = {
-      onOpponentSwitch: handleOpponentSwitch
+    const handleOpponentSwitch = (newOpponentId: string) => {
+      console.log('🔄 Opponent switch detected, new opponent:', newOpponentId);
+      setOpponentId(newOpponentId);
+      setOpponentName('Opponent'); // You might want to fetch the actual name
+      fetchAllStats();
     };
-    
-    globalTimerService.addOpponentSwitchListener(callback);
 
-    // Note: There's no remove method in the service, so we just add the listener
-    // In a production app, we would implement the remove method
+    // Add event listener
+    globalTimerService.on(TIMER_EVENTS.OPPONENT_SWITCH, handleOpponentSwitch);
+
+    // Cleanup
     return () => {
-      // globalTimerService.removeOpponentSwitchListener(callback);
+      globalTimerService.removeListener(TIMER_EVENTS.OPPONENT_SWITCH, handleOpponentSwitch);
     };
-  }, [currentUserId]);
+  }, [currentUserId]); // Re-run when currentUserId changes
 
   // Fetch stats when screen comes into focus and when IDs are available
   useFocusEffect(

@@ -5,7 +5,9 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "jsx": "react-native",
-    "lib": ["es2020"],
+    "lib": [
+      "es2020"
+    ],
     "moduleResolution": "node",
     "noEmit": true,
     "resolveJsonModule": true,
@@ -15,8 +17,12 @@
     "downlevelIteration": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/styles": ["./src/frontend/styles"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@/styles": [
+        "./src/frontend/styles"
+      ]
     }
   },
   "include": [
@@ -27,5 +33,6 @@
   "exclude": [
     "__tests_disabled__/**/*",
     "node_modules"
-  ]
+  ],
+  "extends": "expo/tsconfig.base"
 }

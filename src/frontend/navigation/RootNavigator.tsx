@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { AppState } from 'react-native';
+import { AppState, View, Text } from 'react-native';
 import supabase from '../../lib/supabase';
 import navigationService from '../services/navigationService';
 import globalTimerService from '../services/globalTimerService';
 import appBlockerService from '../services/appBlockerService';
 import swipeNavigationService from '../services/swipeNavigationService';
+import { GlobalModalProvider } from '../contexts/GlobalModalContext';
 import { IntroScreen } from '../screens/IntroScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { CreateProfileScreen } from '../screens/CreateProfileScreen';
@@ -21,7 +22,6 @@ import { GroupInvitesScreen } from '../screens/GroupInvitesScreen';
 import { GroupMembersScreen } from '../screens/GroupMembersScreen';
 import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
-import { View, Text } from 'react-native';
 
 type RootStackParamList = {
   Intro: undefined;
@@ -199,147 +199,149 @@ export const RootNavigator = () => {
         onReady={onNavigationReady}
         onStateChange={handleNavigationStateChange}
       >
-        <Stack.Navigator 
-          screenOptions={{ 
-            headerShown: false,
-            // Add smooth transition animations
-            animation: 'slide_from_right',
-            animationDuration: 300,
-            animationTypeForReplace: 'push',
-            gestureEnabled: true,
-            gestureDirection: 'horizontal',
-          }}
-        >
-          {!session ? (
-            <>
+        <GlobalModalProvider>
+          <Stack.Navigator 
+            screenOptions={{ 
+              headerShown: false,
+              // Add smooth transition animations
+              animation: 'slide_from_right',
+              animationDuration: 300,
+              animationTypeForReplace: 'push',
+              gestureEnabled: true,
+              gestureDirection: 'horizontal',
+            }}
+          >
+            {!session ? (
+              <>
+                <Stack.Screen 
+                  name="Intro" 
+                  component={IntroScreen}
+                  options={{
+                    animation: 'fade',
+                    animationDuration: 250,
+                  }}
+                />
+                <Stack.Screen 
+                  name="Auth" 
+                  component={AuthNavigator}
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 300,
+                  }}
+                />
+              </>
+            ) : !hasProfile ? (
               <Stack.Screen 
-                name="Intro" 
-                component={IntroScreen}
-                options={{
-                  animation: 'fade',
-                  animationDuration: 250,
-                }}
-              />
-              <Stack.Screen 
-                name="Auth" 
-                component={AuthNavigator}
-                options={{
-                  animation: 'slide_from_right',
-                  animationDuration: 300,
-                }}
-              />
-            </>
-          ) : !hasProfile ? (
-            <Stack.Screen 
-              name="CreateProfile" 
-              component={CreateProfileScreen}
-              options={{
-                animation: 'slide_from_bottom',
-                animationDuration: 350,
-              }}
-            />
-          ) : (
-            <>
-              <Stack.Screen 
-                name="OpponentOfTheDay" 
-                component={OpponentOfTheDay}
-                options={({ route }) => ({
-                  animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
-                  animationDuration: 300,
-                })}
-              />
-              <Stack.Screen 
-                name="Stats" 
-                component={StatsScreen}
-                options={({ route }) => ({
-                  animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
-                  animationDuration: 300,
-                })}
-              />
-              <Stack.Screen 
-                name="UserStats" 
-                component={UserStatsScreen}
-                options={{
-                  animation: 'slide_from_right',
-                  animationDuration: 300,
-                }}
-              />
-              <Stack.Screen 
-                name="OpponentStats" 
-                component={UserStatsScreen}
-                options={{
-                  animation: 'slide_from_right',
-                  animationDuration: 300,
-                }}
-              />
-              <Stack.Screen 
-                name="Timer" 
-                component={TimerDistractionScreen}
+                name="CreateProfile" 
+                component={CreateProfileScreen}
                 options={{
                   animation: 'slide_from_bottom',
                   animationDuration: 350,
-                  gestureEnabled: false, // Disable swipe gesture for timer screen
                 }}
               />
-              <Stack.Screen 
-                name="Profile" 
-                component={ProfileScreen}
-                options={({ route }) => ({
-                  animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
-                  animationDuration: 300,
-                })}
-              />
-              <Stack.Screen 
-                name="GroupScreen" 
-                component={GroupScreen}
-                options={({ route }) => ({
-                  animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
-                  animationDuration: 300,
-                })}
-              />
-              <Stack.Screen 
-                name="CreateGroup" 
-                component={CreateGroupScreen}
-                options={{
-                  animation: 'slide_from_right',
-                  animationDuration: 300,
-                }}
-              />
-              <Stack.Screen 
-                name="GroupInvites" 
-                component={GroupInvitesScreen}
-                options={{
-                  animation: 'slide_from_right',
-                  animationDuration: 300,
-                }}
-              />
-              <Stack.Screen 
-                name="GroupMembers" 
-                component={GroupMembersScreen}
-                options={{
-                  animation: 'slide_from_right',
-                  animationDuration: 300,
-                }}
-              />
-              <Stack.Screen 
-                name="SettingsPrivacy" 
-                component={SettingsPrivacyScreen}
-                options={{
-                  animation: 'slide_from_right',
-                  animationDuration: 300,
-                }}
-              />
-              <Stack.Screen 
-                name="EditProfile" 
-                component={EditProfileScreen}
-                options={{
-                  animation: 'slide_from_right',
-                  animationDuration: 300,
-                }}
-              />
-            </>
-          )}
-        </Stack.Navigator>
+            ) : (
+              <>
+                <Stack.Screen 
+                  name="OpponentOfTheDay" 
+                  component={OpponentOfTheDay}
+                  options={({ route }) => ({
+                    animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
+                    animationDuration: 300,
+                  })}
+                />
+                <Stack.Screen 
+                  name="Stats" 
+                  component={StatsScreen}
+                  options={({ route }) => ({
+                    animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
+                    animationDuration: 300,
+                  })}
+                />
+                <Stack.Screen 
+                  name="UserStats" 
+                  component={UserStatsScreen}
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 300,
+                  }}
+                />
+                <Stack.Screen 
+                  name="OpponentStats" 
+                  component={UserStatsScreen}
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 300,
+                  }}
+                />
+                <Stack.Screen 
+                  name="Timer" 
+                  component={TimerDistractionScreen}
+                  options={{
+                    animation: 'slide_from_bottom',
+                    animationDuration: 350,
+                    gestureEnabled: false, // Disable swipe gesture for timer screen
+                  }}
+                />
+                <Stack.Screen 
+                  name="Profile" 
+                  component={ProfileScreen}
+                  options={({ route }) => ({
+                    animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
+                    animationDuration: 300,
+                  })}
+                />
+                <Stack.Screen 
+                  name="GroupScreen" 
+                  component={GroupScreen}
+                  options={({ route }) => ({
+                    animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
+                    animationDuration: 300,
+                  })}
+                />
+                <Stack.Screen 
+                  name="CreateGroup" 
+                  component={CreateGroupScreen}
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 300,
+                  }}
+                />
+                <Stack.Screen 
+                  name="GroupInvites" 
+                  component={GroupInvitesScreen}
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 300,
+                  }}
+                />
+                <Stack.Screen 
+                  name="GroupMembers" 
+                  component={GroupMembersScreen}
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 300,
+                  }}
+                />
+                <Stack.Screen 
+                  name="SettingsPrivacy" 
+                  component={SettingsPrivacyScreen}
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 300,
+                  }}
+                />
+                <Stack.Screen 
+                  name="EditProfile" 
+                  component={EditProfileScreen}
+                  options={{
+                    animation: 'slide_from_right',
+                    animationDuration: 300,
+                  }}
+                />
+              </>
+            )}
+          </Stack.Navigator>
+        </GlobalModalProvider>
       </NavigationContainer>
     </SessionContext.Provider>
   );
