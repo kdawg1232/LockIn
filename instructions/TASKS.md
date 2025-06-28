@@ -79,3 +79,17 @@ Below this, there should be terms of service and privacy policy (2024-12-26)
 
 ✅ 1.32 Add in the calendar (a bunch of squares that represent the past 31 or 30 days). If the user wins, they get a green square below that day. If the user loses, they get a red square. There should be a week view, month view, and year view. This should be stored into a database as well. (2024-12-26) 
 
+⏳ 1.33 Migrate to Bare Workflow and integrate iOS Family Controls API - Eject from Expo Managed to Bare Workflow, create Swift native module for Family Controls authorization and app blocking, configure entitlements, set up EAS Build profiles for native development, implement JavaScript bridge for Family Controls API, and test on real devices (2024-12-28)
+
+⏳ 1.34 Implement Groups Feature - Create groups system where friends can compete against each other. Rename CommunityScreen to GroupScreen with "Create Group" button. Create CreateGroupScreen for group creation (name, description, invite users by username/name). Add "Invites" button to ProfileScreen for accepting group invitations. Group creators can kick members and edit details. Users can join multiple groups. Database: groups, group_memberships, group_invitations tables. (2024-12-28)
+    
+    ✅ 1.34.1 Enhanced GroupInvitesScreen to show group names and inviter details - Updated getAllInvitations service to fetch group names and inviter names, improved UI styling for better readability, invitations now display "Invited by [Name]" and proper group names (2024-12-28)
+    
+    ✅ 1.34.2 Added invite members functionality to GroupMembersScreen - Created invitation modal with user search, manual entry, and batch invitation sending, similar to CreateGroupScreen interface (2024-12-28)
+    
+    ✅ 1.34.3 Restricted group invitations to creators only - Only group creators can now invite new members to their groups, ensuring proper permission control (2024-12-28)
+    
+    ✅ 1.34.4 Added NavigationBar to group screens - Added bottom navigation bar to GroupMembersScreen and GroupInvitesScreen for consistent navigation experience (2024-12-28)
+    
+    ✅ 1.34.5 Enhanced member count tracking - Updated getUserGroups service to fetch real-time member counts, groups now show accurate member counts that update when new members join (2024-12-28)
+

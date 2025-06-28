@@ -7,6 +7,8 @@ import supabase from '../../lib/supabase';
 import { NavigationBar } from '../components/NavigationBar';
 import { getUserProfile, UserProfileData } from '../services/profileService';
 import { getRecentChallengeHistory, CalendarDay } from '../services/challengeHistoryService';
+import { getPendingInvitationCount } from '../services/groupInvitationService';
+import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
 
 // Interface for enhanced user profile data
 interface UserProfile {
@@ -29,6 +31,9 @@ type CalendarView = 'Week' | 'Month' | 'Year';
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   
+  // Add swipe navigation support
+  const { panHandlers } = useSwipeNavigation('Profile');
+  
   // Ref to track if initial load is complete
   const hasInitiallyLoaded = useRef(false);
   
@@ -41,6 +46,10 @@ export const ProfileScreen: React.FC = () => {
   const [calendarData, setCalendarData] = useState<CalendarDay[]>([]);
   const [selectedCalendarView, setSelectedCalendarView] = useState<CalendarView>('Month');
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  
+  // Invitations state
+  const [pendingInviteCount, setPendingInviteCount] = useState(0);
+  const [isLoadingInvites, setIsLoadingInvites] = useState(false);
 
   // Fetch enhanced user profile data including new fields
   const fetchUserProfile = async () => {
@@ -119,6 +128,31 @@ export const ProfileScreen: React.FC = () => {
     }
   };
 
+  // Fetch pending invitations count
+  const fetchPendingInviteCount = async () => {
+    try {
+      const { data: { user } } = await supabase.getUser();
+      if (!user) return;
+
+      setIsLoadingInvites(true);
+      console.log('📨 Fetching pending invitation count');
+      
+      const { count, error } = await getPendingInvitationCount(user.id);
+      
+      if (error) {
+        console.error('Error fetching pending invitation count:', error);
+        return;
+      }
+
+      setPendingInviteCount(count);
+      console.log('📨 Pending invitations count:', count);
+    } catch (error) {
+      console.error('Error fetching pending invitation count:', error);
+    } finally {
+      setIsLoadingInvites(false);
+    }
+  };
+
   // Handle settings navigation (task 1.31)
   const handleSettingsNavigation = () => {
     navigation.navigate('SettingsPrivacy' as never);
@@ -157,6 +191,7 @@ export const ProfileScreen: React.FC = () => {
   useEffect(() => {
     fetchUserProfile();
     fetchCalendarData();
+    fetchPendingInviteCount();
   }, []);
 
   // Refresh profile data when screen comes into focus (e.g., after editing profile)
@@ -169,6 +204,7 @@ export const ProfileScreen: React.FC = () => {
           setIsRefreshing(true);
           await fetchUserProfile();
           await fetchCalendarData(); // Also refresh calendar data
+          await fetchPendingInviteCount(); // Also refresh invitation count
           setIsRefreshing(false);
         }
       };
@@ -200,11 +236,12 @@ export const ProfileScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        style={styles.content} 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={{ flex: 1 }} {...panHandlers}>
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
         {/* Header with Settings Icon */}
         <View style={styles.header}>
           <View style={styles.titleContainer}>
@@ -255,6 +292,25 @@ export const ProfileScreen: React.FC = () => {
             <Text style={styles.statLabel}>Total Coins</Text>
           </View>
         </View>
+
+        {/* Group Invites Button (Task 1.34) */}
+        <TouchableOpacity 
+          style={styles.invitesButton}
+          onPress={() => navigation.navigate('GroupInvites' as never)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.invitesButtonContent}>
+            <Ionicons name="mail" size={20} color="#FFFFFF" />
+            <Text style={styles.invitesButtonText}>Invites</Text>
+            {isLoadingInvites ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : pendingInviteCount > 0 ? (
+              <View style={styles.invitesBadge}>
+                <Text style={styles.invitesBadgeText}>{pendingInviteCount}</Text>
+              </View>
+            ) : null}
+          </View>
+        </TouchableOpacity>
 
         {/* Calendar Section (Task 1.32) */}
         <View style={styles.calendarSection}>
@@ -388,6 +444,7 @@ export const ProfileScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+      </View>
       <NavigationBar />
     </SafeAreaView>
   );
@@ -513,6 +570,51 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontFamily: 'Inter',
     textAlign: 'center',
+  },
+
+  // Group Invites Button (task 1.34)
+  invitesButton: {
+    backgroundColor: '#cfb991', // Primary tan color
+    borderRadius: 12,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  invitesButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+
+  invitesButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
+  },
+
+  invitesBadge: {
+    backgroundColor: '#EF4444', // Red for pending count
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+
+  invitesBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
   },
 
   // Calendar section (task 1.32)

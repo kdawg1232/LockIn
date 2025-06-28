@@ -64,9 +64,9 @@ export const NavigationBar = () => {
           <Ionicons name="person" size={20} color="#000000" />
         </TouchableOpacity>
 
-        {/* Community Button */}
+        {/* Groups Button */}
         <TouchableOpacity 
-          onPress={() => navigation.navigate('Community')}
+          onPress={() => navigation.navigate('GroupScreen')}
           style={styles.navButton}
           activeOpacity={0.7}
         >

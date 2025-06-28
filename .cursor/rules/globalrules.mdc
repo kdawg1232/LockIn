@@ -13,6 +13,8 @@ alwaysApply: false
 - **Check `TASKS.md`** before starting a new task. If the task isn’t listed, add it with a brief description and today's date.
 - **Check DATABASE.sql whenever you think you need to do database implementation. The database might already exists. Change this file each time you have to make a change. 
 - **Use consistent naming conventions, file structure, and architecture patterns** as described in `PLANNING.md`.
+- CHECK MIGRATION_CHECKLIST.md and FAMILY_CONTROLS_MIGRATION_GUIDE.md for getting family controls api to fully work in the project
+- Make sure you look at supabase.ts in order to get a better view of this project if necessary. 
 
 
 ### 🧱 Code Structure & Modularity

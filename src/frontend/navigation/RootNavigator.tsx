@@ -6,6 +6,7 @@ import supabase from '../../lib/supabase';
 import navigationService from '../services/navigationService';
 import globalTimerService from '../services/globalTimerService';
 import appBlockerService from '../services/appBlockerService';
+import swipeNavigationService from '../services/swipeNavigationService';
 import { IntroScreen } from '../screens/IntroScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { CreateProfileScreen } from '../screens/CreateProfileScreen';
@@ -14,7 +15,10 @@ import { StatsScreen } from '../screens/StatsScreen';
 import { UserStatsScreen } from '../screens/UserStatsScreen';
 import { TimerDistractionScreen } from '../screens/TimerDistractionScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { CommunityScreen } from '../screens/CommunityScreen';
+import { GroupScreen } from '../screens/GroupScreen';
+import { CreateGroupScreen } from '../screens/CreateGroupScreen';
+import { GroupInvitesScreen } from '../screens/GroupInvitesScreen';
+import { GroupMembersScreen } from '../screens/GroupMembersScreen';
 import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { View, Text } from 'react-native';
@@ -35,7 +39,13 @@ type RootStackParamList = {
   };
   Timer: undefined;
   Profile: undefined;
-  Community: undefined;
+  GroupScreen: undefined; // Renamed from Community for groups feature
+  CreateGroup: undefined; // New screen for creating groups
+  GroupInvites: undefined; // New screen for viewing/accepting group invitations
+  GroupMembers: { // New screen for viewing group members and details
+    groupId: string;
+    groupName: string;
+  };
   SettingsPrivacy: undefined; // New screen for task 1.31
   EditProfile: undefined; // New screen for editing profile
 };
@@ -144,6 +154,7 @@ export const RootNavigator = () => {
   const onNavigationReady = () => {
     if (navigationRef.current) {
       navigationService.setNavigationRef(navigationRef.current);
+      swipeNavigationService.setNavigationRef(navigationRef.current);
       
       // Check for active session on initial load
       if (session && hasProfile) {
@@ -232,18 +243,18 @@ export const RootNavigator = () => {
               <Stack.Screen 
                 name="OpponentOfTheDay" 
                 component={OpponentOfTheDay}
-                options={{
-                  animation: 'fade',
-                  animationDuration: 250,
-                }}
+                options={({ route }) => ({
+                  animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
+                  animationDuration: 300,
+                })}
               />
               <Stack.Screen 
                 name="Stats" 
                 component={StatsScreen}
-                options={{
-                  animation: 'slide_from_right',
+                options={({ route }) => ({
+                  animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
                   animationDuration: 300,
-                }}
+                })}
               />
               <Stack.Screen 
                 name="UserStats" 
@@ -273,14 +284,38 @@ export const RootNavigator = () => {
               <Stack.Screen 
                 name="Profile" 
                 component={ProfileScreen}
+                options={({ route }) => ({
+                  animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
+                  animationDuration: 300,
+                })}
+              />
+              <Stack.Screen 
+                name="GroupScreen" 
+                component={GroupScreen}
+                options={({ route }) => ({
+                  animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
+                  animationDuration: 300,
+                })}
+              />
+              <Stack.Screen 
+                name="CreateGroup" 
+                component={CreateGroupScreen}
                 options={{
                   animation: 'slide_from_right',
                   animationDuration: 300,
                 }}
               />
               <Stack.Screen 
-                name="Community" 
-                component={CommunityScreen}
+                name="GroupInvites" 
+                component={GroupInvitesScreen}
+                options={{
+                  animation: 'slide_from_right',
+                  animationDuration: 300,
+                }}
+              />
+              <Stack.Screen 
+                name="GroupMembers" 
+                component={GroupMembersScreen}
                 options={{
                   animation: 'slide_from_right',
                   animationDuration: 300,

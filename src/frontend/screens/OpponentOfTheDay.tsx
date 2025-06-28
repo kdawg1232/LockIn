@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabase from '../../lib/supabase';
 import { colors, commonStyles, spacing, typography } from '../styles/theme';
 import { SessionContext } from '../navigation/RootNavigator';
+import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
 
 // Storage key for acceptance state
 const OPPONENT_ACCEPTANCE_KEY = 'opponent_accepted_';
@@ -50,6 +51,10 @@ interface OpponentData {
 
 export const OpponentOfTheDay: React.FC = () => {
   const { refreshSession } = useContext(SessionContext);
+  
+  // Add swipe navigation support
+  const { panHandlers } = useSwipeNavigation('OpponentOfTheDay');
+  
   const [opponent, setOpponent] = useState<OpponentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -481,7 +486,8 @@ export const OpponentOfTheDay: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <View style={{ flex: 1 }} {...panHandlers}>
+        <View style={styles.content}>
         {/* Logo */}
         <View style={styles.logoSection}>
           <View style={styles.logoContainer}>
@@ -580,6 +586,7 @@ export const OpponentOfTheDay: React.FC = () => {
             </View>
           </View>
         </Modal>
+        </View>
       </View>
     </SafeAreaView>
   );

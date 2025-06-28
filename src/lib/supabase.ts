@@ -335,6 +335,31 @@ class SupabaseRestClient {
           }
         },
       }),
+
+      // Delete data
+      delete: () => ({
+        eq: async (column: string, value: any) => {
+          try {
+            const headers = await this.getAuthHeaders();
+            const response = await fetch(
+              `${this.baseUrl}/rest/v1/${table}?${column}=eq.${value}`,
+              {
+                method: 'DELETE',
+                headers,
+              }
+            );
+            
+            if (!response.ok) {
+              const errorData = await response.json();
+              return { data: null, error: errorData.message || 'Delete failed' };
+            }
+            
+            return { data: null, error: null };
+          } catch (error) {
+            return { data: null, error: 'Network error' };
+          }
+        },
+      }),
     };
   }
 

@@ -6,6 +6,7 @@ import { getTodaysCoinTransactions } from '../services/timerService';
 import globalTimerService, { OpponentSwitchCallback } from '../services/globalTimerService';
 import supabase from '../../lib/supabase';
 import { NavigationBar } from '../components/NavigationBar';
+import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
 
 // Logo component with grid design
 const GridLogo: React.FC = () => {
@@ -56,6 +57,9 @@ export const StatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const params = route.params as StatsScreenParams;
+  
+  // Add swipe navigation support
+  const { panHandlers } = useSwipeNavigation('Stats');
   
   // Initialize opponent from route params or global timer service
   const [opponentId, setOpponentId] = useState<string>(params?.opponentId || '');
@@ -325,7 +329,8 @@ export const StatsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <View style={{ flex: 1 }} {...panHandlers}>
+        <View style={styles.content}>
         {/* Header with navigation and logo */}
         <View style={styles.header}>
           {/* Logo */}
@@ -375,6 +380,7 @@ export const StatsScreen: React.FC = () => {
             </View>
           </View>
         )}
+        </View>
       </View>
       <NavigationBar />
     </SafeAreaView>

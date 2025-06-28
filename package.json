@@ -4,8 +4,8 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "dependencies": {
@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@expo/prebuild-config": "^9.0.8",
     "@types/react": "~19.0.10",
     "postcss-load-config": "^6.0.1",
     "react-native-dotenv": "^3.4.11",

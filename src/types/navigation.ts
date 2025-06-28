@@ -16,7 +16,13 @@ export type RootStackParamList = {
   };
   Timer: undefined;
   Profile: undefined;
-  Community: undefined;
+  GroupScreen: undefined; // Renamed from Community for groups feature
+  CreateGroup: undefined; // New screen for creating groups
+  GroupInvites: undefined; // New screen for viewing/accepting group invitations
+  GroupMembers: { // New screen for viewing group members and details
+    groupId: string;
+    groupName: string;
+  };
   SettingsPrivacy: undefined; // New screen for task 1.31
   EditProfile: undefined; // New screen for editing profile
 };
