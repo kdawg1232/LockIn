@@ -60,28 +60,34 @@ class FamilyControlsManager: NSObject {
         _ resolve: @escaping RCTPromiseResolveBlock,
         rejecter reject: @escaping RCTPromiseRejectBlock
     ) {
+        print("🍎 [Swift] startAppBlocking called")
+        print("🍎 [Swift] Authorization status: \(center.authorizationStatus)")
+        
         guard center.authorizationStatus == .approved else {
+            print("🍎 [Swift] ERROR: Not authorized for Family Controls")
             reject("NOT_AUTHORIZED", "Family Controls authorization required", nil)
             return
         }
         
-        // Use the apps selected through AppSelectionManager
-        let selectedApps = AppSelectionManager.selectedApplications
+        // Use the application tokens selected through AppSelectionManager
+        let selectedTokens = AppSelectionManager.selectedApplicationTokens
+        print("🍎 [Swift] Selected tokens count: \(selectedTokens.count)")
         
-        guard !selectedApps.isEmpty else {
+        guard !selectedTokens.isEmpty else {
+            print("🍎 [Swift] ERROR: No applications selected for blocking")
             reject("NO_APPS_SELECTED", "No applications selected for blocking", nil)
             return
         }
         
-        // Apply restrictions using selected applications  
-        // Extract ApplicationTokens from Application objects for ManagedSettings
-        let applicationTokens: Set<ApplicationToken> = Set(selectedApps.compactMap { $0.token })
-        store.shield.applications = applicationTokens
+        // Apply restrictions using selected application tokens
+        print("🍎 [Swift] Applying restrictions to \(selectedTokens.count) apps")
+        store.shield.applications = selectedTokens
         store.shield.applicationCategories = ShieldSettings.ActivityCategoryPolicy.specific(Set(), except: Set())
         
+        print("🍎 [Swift] App blocking started successfully")
         resolve([
             "success": true, 
-            "blockedApps": selectedApps.count,
+            "blockedApps": selectedTokens.count,
             "message": "App blocking started successfully"
         ])
     }

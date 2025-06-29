@@ -22,7 +22,9 @@ export const TimerDistractionScreen: React.FC = () => {
   const { 
     isAuthorized,
     isBlocking,
+    selectedAppsCount,
     requestAuthorization,
+    showAppSelection,
     startBlocking,
     stopBlocking
   } = useAppBlocking();
@@ -158,8 +160,12 @@ export const TimerDistractionScreen: React.FC = () => {
         COINS_REWARD
       );
       
-      // Start app blocking (this is now just a state update)
-      await startBlocking();
+      // Start app blocking with debug logging
+      console.log('🔧 About to start app blocking. Selected apps:', selectedAppsCount);
+      console.log('🔧 Authorization status:', isAuthorized);
+      
+      const blockingResult = await startBlocking();
+      console.log('🔧 App blocking result:', blockingResult);
       
       // Start local countdown interval
       startTimerInterval();
@@ -451,6 +457,28 @@ export const TimerDistractionScreen: React.FC = () => {
             </>
           )}
         </View>
+
+        {/* App Selection Button (for testing) */}
+        {timerState === TimerState.READY && (
+          <View style={styles.appSelectionContainer}>
+            <Text style={styles.appSelectionTitle}>
+              Apps Selected: {selectedAppsCount}
+            </Text>
+            <TouchableOpacity 
+              style={styles.appSelectionButton}
+              onPress={async () => {
+                console.log('🔧 Starting app selection...');
+                const success = await showAppSelection();
+                console.log('🔧 App selection result:', success);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.appSelectionButtonText}>
+                {selectedAppsCount > 0 ? 'Change Apps to Block' : 'Select Apps to Block'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Timer control button */}
         <View style={styles.buttonContainer}>
@@ -777,6 +805,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+
+  // App Selection styles
+  appSelectionContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+
+  appSelectionTitle: {
+    fontSize: 16,
+    color: '#A67C52', // tan-500 (primary tan)
+    textAlign: 'center',
+    fontFamily: 'Inter',
+    marginBottom: 12,
+  },
+
+  appSelectionButton: {
+    backgroundColor: '#A67C52', // tan-500 (primary tan)
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  appSelectionButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
     fontFamily: 'Inter',
   },
 });
