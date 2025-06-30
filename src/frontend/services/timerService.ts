@@ -226,9 +226,42 @@ export const getUserTotalCoins = async (userId: string): Promise<{ totalCoins: n
 };
 
 /**
- * Get user's coin transactions since the last stats reset
- * Returns transactions from the last stats reset time for current daily challenge
- * FIXED: Now returns separate gains/losses as expected by StatsScreen
+ * Reset daily coin transactions for a user
+ * This should be called when:
+ * 1. A user gets a new opponent
+ * 2. The timer hits 0
+ */
+export const resetDailyCoins = async (userId: string): Promise<{ success: boolean; error: string | null }> => {
+  try {
+    console.log('🔄 Resetting daily coins for user:', userId);
+    
+    // Add a reset marker transaction
+    const resetTransaction = {
+      user_id: userId,
+      amount: 0,
+      transaction_type: 'other',
+      description: 'RESET_MARKER'
+    };
+    
+    const result = await supabase
+      .from('coin_transactions')
+      .insert([resetTransaction]);
+    
+    if (result.error) {
+      console.error('Error adding reset marker:', result.error);
+      return { success: false, error: result.error };
+    }
+    
+    return { success: true, error: null };
+  } catch (error) {
+    console.error('Error resetting daily coins:', error);
+    return { success: false, error: 'Failed to reset daily coins' };
+  }
+};
+
+/**
+ * Get user's coin transactions since the last reset marker
+ * Returns transactions from the last reset marker or start of day, whichever is more recent
  */
 export const getTodaysCoinTransactions = async (userId: string) => {
   try {
@@ -236,7 +269,7 @@ export const getTodaysCoinTransactions = async (userId: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Get transactions for today
+    // Get all transactions for today including reset markers
     const result = await supabase
       .from('coin_transactions')
       .select('amount, created_at, transaction_type, description')
@@ -247,30 +280,36 @@ export const getTodaysCoinTransactions = async (userId: string) => {
       throw result.error;
     }
 
-    // Filter transactions for today
-    const endOfDay = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-    const todaysTransactions = (result.data as CoinTransaction[])
+    // Filter transactions for today first
+    const transactions = (result.data as CoinTransaction[])
       .filter(t => {
         const date = new Date(t.created_at);
-        return date >= today && date < endOfDay;
+        return date >= today;
       });
 
-    console.log('💰 Found', todaysTransactions.length, 'transactions for today:', todaysTransactions);
+    // Find the last reset marker
+    const lastResetIndex = [...transactions].reverse().findIndex(t => t.description === 'RESET_MARKER');
+    
+    // Get transactions after the last reset marker
+    const relevantTransactions = lastResetIndex >= 0 
+      ? transactions.slice(transactions.length - lastResetIndex)
+      : transactions;
 
-    // Calculate gains (positive amounts) and losses (negative amounts)
+    // Calculate gains and losses
     let coinsGained = 0;
     let coinsLost = 0;
 
-    todaysTransactions.forEach(transaction => {
-      if (transaction.amount > 0) {
-        coinsGained += transaction.amount;
-      } else if (transaction.amount < 0) {
-        coinsLost += Math.abs(transaction.amount); // Store as positive number
+    relevantTransactions.forEach(transaction => {
+      if (transaction.description !== 'RESET_MARKER') {
+        if (transaction.amount > 0) {
+          coinsGained += transaction.amount;
+        } else if (transaction.amount < 0) {
+          coinsLost += Math.abs(transaction.amount);
+        }
       }
     });
 
     const netCoins = coinsGained - coinsLost;
-
     console.log('💰 Today\'s coin summary:', { coinsGained, coinsLost, netCoins });
 
     return { coinsGained, coinsLost, netCoins };

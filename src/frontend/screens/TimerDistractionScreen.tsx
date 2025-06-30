@@ -321,20 +321,23 @@ export const TimerDistractionScreen: React.FC = () => {
           { 
             text: 'Leave', 
             style: 'destructive',
-            onPress: () => {
+            onPress: async () => {
               if (intervalRef.current) {
                 clearInterval(intervalRef.current);
               }
               if (currentSession) {
-                cancelFocusSession(currentSession.id);
+                await cancelFocusSession(currentSession.id);
+                await globalTimerService.cancelFocusSession();
               }
-              navigation.goBack();
+              // Explicitly navigate to Stats screen
+              (navigation as any).navigate('Stats');
             }
           }
         ]
       );
     } else {
-      navigation.goBack();
+      // Explicitly navigate to Stats screen
+      (navigation as any).navigate('Stats');
     }
   };
 

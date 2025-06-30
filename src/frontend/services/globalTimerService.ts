@@ -173,10 +173,16 @@ class GlobalTimerService extends EventEmitter {
         if (!user?.id) return;
 
         // Get today's coin transactions for both users before processing resolution
-        const { getTodaysCoinTransactions } = await import('./timerService');
+        const { getTodaysCoinTransactions, resetDailyCoins } = await import('./timerService');
         const [userStatsResult, opponentStatsResult] = await Promise.all([
           getTodaysCoinTransactions(user.id),
           getTodaysCoinTransactions(this.currentOpponentId)
+        ]);
+        
+        // Reset daily coins for both users
+        await Promise.all([
+          resetDailyCoins(user.id),
+          resetDailyCoins(this.currentOpponentId)
         ]);
 
         const resolution = await processDailyChallengeResolution(user.id, this.currentOpponentId);
@@ -347,6 +353,15 @@ class GlobalTimerService extends EventEmitter {
 
   // Force opponent switch (for testing)
   async forceOpponentSwitch() {
+    // Reset coins before switching
+    const { resetDailyCoins } = await import('./timerService');
+    const { data: { user } } = await supabase.getUser();
+    if (user && this.currentOpponentId) {
+      await Promise.all([
+        resetDailyCoins(user.id),
+        resetDailyCoins(this.currentOpponentId)
+      ]);
+    }
     await this.handleOpponentSwitch();
     await this.setNextOpponentTime();
   }
