@@ -5,7 +5,6 @@ import swipeNavigationService from '../services/swipeNavigationService';
 
 // Define the main navigation screens in order (left to right in navigation bar)
 const MAIN_SCREENS = [
-  'OpponentOfTheDay',
   'Stats', 
   'Profile',
   'GroupScreen'

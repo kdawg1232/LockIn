@@ -4,7 +4,6 @@ export type RootStackParamList = {
   Intro: undefined;
   Auth: { screen?: string } | undefined;
   CreateProfile: undefined;
-  OpponentOfTheDay: undefined;
   Stats: {
     opponentName: string;
     opponentId: string;

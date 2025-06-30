@@ -2,42 +2,21 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../types/navigation';
+import { GridLogo } from './GridLogo';
 
-// Logo component with grid design (same as other screens)
-const GridLogo: React.FC = () => {
-  return (
-    <View style={styles.gridContainer}>
-      {/* Row 1 */}
-      <View style={styles.gridRow}>
-        <View style={[styles.gridSquare, styles.gridDark]} />
-        <View style={[styles.gridSquare, styles.gridTan]} />
-        <View style={[styles.gridSquare, styles.gridDark]} />
-      </View>
-      {/* Row 2 */}
-      <View style={styles.gridRow}>
-        <View style={[styles.gridSquare, styles.gridDark]} />
-        <View style={[styles.gridSquare, styles.gridTan]} />
-        <View style={[styles.gridSquare, styles.gridTan]} />
-      </View>
-      {/* Row 3 */}
-      <View style={styles.gridRow}>
-        <View style={[styles.gridSquare, styles.gridDark]} />
-        <View style={[styles.gridSquare, styles.gridDark]} />
-        <View style={[styles.gridSquare, styles.gridDark]} />
-      </View>
-    </View>
-  );
-};
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const NavigationBar = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
 
   return (
     <View style={styles.container}>
       <View style={styles.navigationBar}>
         {/* Challenge Button - Lightning Bolt */}
         <TouchableOpacity 
-          onPress={() => navigation.navigate('OpponentOfTheDay')}
+          onPress={() => navigation.navigate('Stats', { opponentName: '', opponentId: '' })}
           style={styles.navButton}
           activeOpacity={0.7}
         >
@@ -46,7 +25,7 @@ export const NavigationBar = () => {
 
         {/* Logo Home Button */}
         <TouchableOpacity 
-          onPress={() => navigation.navigate('Stats')}
+          onPress={() => navigation.navigate('Stats', { opponentName: '', opponentId: '' })}
           style={styles.logoButton}
           activeOpacity={0.7}
         >
@@ -126,31 +105,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(166, 124, 82, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  // Grid logo styles
-  gridContainer: {
-    width: 16,
-    height: 16,
-    gap: 1,
-  },
-
-  gridRow: {
-    flexDirection: 'row',
-    gap: 1,
-    flex: 1,
-  },
-
-  gridSquare: {
-    flex: 1,
-    borderRadius: 1,
-  },
-
-  gridDark: {
-    backgroundColor: '#4B5563', // gray-600
-  },
-
-  gridTan: {
-    backgroundColor: '#A67C52', // tan-500 (primary tan)
-  },
+  }
 }); 

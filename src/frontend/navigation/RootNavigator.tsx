@@ -11,7 +11,6 @@ import { GlobalModalProvider } from '../contexts/GlobalModalContext';
 import { IntroScreen } from '../screens/IntroScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { CreateProfileScreen } from '../screens/CreateProfileScreen';
-import { OpponentOfTheDay } from '../screens/OpponentOfTheDay';
 import { StatsScreen } from '../screens/StatsScreen';
 import { UserStatsScreen } from '../screens/UserStatsScreen';
 import { TimerDistractionScreen } from '../screens/TimerDistractionScreen';
@@ -27,7 +26,6 @@ type RootStackParamList = {
   Intro: undefined;
   Auth: { screen?: string } | undefined;
   CreateProfile: undefined;
-  OpponentOfTheDay: undefined;
   Stats: {
     opponentName: string;
     opponentId: string;
@@ -189,7 +187,7 @@ export const RootNavigator = () => {
   } else if (!hasProfile) {
     console.log('🔍 Rendering: CreateProfile Screen (session exists, no profile)');
   } else {
-    console.log('🔍 Rendering: OpponentOfTheDay Screen (session exists, profile complete)');
+    console.log('🔍 Rendering: Stats Screen (session exists, profile complete)');
   }
 
   return (
@@ -241,14 +239,6 @@ export const RootNavigator = () => {
               />
             ) : (
               <>
-                <Stack.Screen 
-                  name="OpponentOfTheDay" 
-                  component={OpponentOfTheDay}
-                  options={({ route }) => ({
-                    animation: (route.params as any)?.__swipeDirection === 'left' ? 'slide_from_left' : 'slide_from_right',
-                    animationDuration: 300,
-                  })}
-                />
                 <Stack.Screen 
                   name="Stats" 
                   component={StatsScreen}
