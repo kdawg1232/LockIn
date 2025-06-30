@@ -11,6 +11,8 @@ import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
 import { useGlobalModal } from '../contexts/GlobalModalContext';
 import { GridLogo } from '../components/GridLogo';
 import { ChallengeResultsModal } from '../components/ChallengeResultsModal';
+import { CarouselStatsCard } from '../components/CarouselStatsCard';
+import { getGroupOpponents, GroupOpponent } from '../services/groupOpponentService';
 
 // Interface for daily stats data
 interface StatsData {
@@ -52,39 +54,26 @@ export const StatsScreen: React.FC = () => {
   const params = route.params as StatsScreenParams | undefined;
   const { showChallengeResults, showModal, hideModal, activeModal } = useGlobalModal();
   
-  // Add swipe navigation support
+  // Add swipe navigation support (for screen-level navigation)
   const { panHandlers } = useSwipeNavigation('Stats');
   
-  // Initialize opponent from route params or global timer service
-  const [opponentId, setOpponentId] = useState<string>(params?.opponentId || '');
-  const [opponentName, setOpponentName] = useState<string>(params?.opponentName || 'Unknown User');
-  
-  // State for user stats and UI
+  // State for current user and carousel opponents
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserName, setCurrentUserName] = useState<string>('You'); // Store actual user name
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>('00:05:00');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Stats state
+  // Carousel state for group opponents
+  const [groupOpponents, setGroupOpponents] = useState<GroupOpponent[]>([]);
+  const [currentOpponent, setCurrentOpponent] = useState<GroupOpponent | null>(null);
+  const [currentOpponentIndex, setCurrentOpponentIndex] = useState<number>(0);
+  
+  // User stats
   const [userStats, setUserStats] = useState<StatsData>({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
-  const [opponentStats, setOpponentStats] = useState<StatsData>({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
   
-  // Add state for opponent details
-  const [opponentDetails, setOpponentDetails] = useState<OpponentDetails | null>(null);
-  
-  // User data for rendering
-  const userData: UserData = {
-    name: 'You',
-    stats: userStats
-  };
-  
-  const opponentData: UserData = {
-    name: opponentDetails ? `${opponentDetails.firstName} ${opponentDetails.lastName}` : 'Opponent',
-    stats: opponentStats
-  };
-
-  // Inside the component:
+  // Challenge results state
   const [challengeResults, setChallengeResults] = useState<{
     results: {
       groupName: string;
@@ -94,7 +83,7 @@ export const StatsScreen: React.FC = () => {
     }[];
   } | null>(null);
 
-  // Initialize current user and opponent
+  // Initialize current user and group opponents
   useEffect(() => {
     const initializeUser = async () => {
       try {
@@ -102,27 +91,20 @@ export const StatsScreen: React.FC = () => {
         if (user) {
           setCurrentUserId(user.id);
           
-          // If no opponent ID from params, check global timer service
-          if (!opponentId) {
-            const globalOpponentId = globalTimerService.getCurrentOpponentId();
-            if (globalOpponentId) {
-              setOpponentId(globalOpponentId);
-              // Fetch opponent details instead of just setting "Opponent"
-              const opponent = await getCurrentOpponent(user.id);
-              if (opponent) {
-                setOpponentDetails({
-                  id: opponent.id,
-                  firstName: opponent.firstName,
-                  lastName: opponent.lastName
-                });
-              }
-            } else {
-              // Set current user as opponent if no opponent set
-              globalTimerService.setCurrentOpponentId(user.id);
-              setOpponentId(user.id);
-              setOpponentName('Opponent');
-            }
+          // Fetch user's actual name from database
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('first_name, last_name')
+            .eq('id', user.id);
+          
+          if (!userError && userData && userData.length > 0) {
+            const userInfo = Array.isArray(userData) ? userData[0] : userData;
+            const fullName = `${userInfo.first_name || ''} ${userInfo.last_name || ''}`.trim();
+            setCurrentUserName(fullName || 'You');
           }
+          
+          // Fetch group opponents
+          await fetchGroupOpponents(user.id);
         }
       } catch (error) {
         console.error('Error getting current user:', error);
@@ -132,7 +114,41 @@ export const StatsScreen: React.FC = () => {
     initializeUser();
   }, []);
 
-  // Fetch user stats with daily reset filtering
+  // Fetch group opponents from all user's groups
+  const fetchGroupOpponents = async (userId: string) => {
+    try {
+      console.log('🎯 Fetching group opponents for carousel');
+      setIsLoading(true);
+      
+      const { data: opponents, error } = await getGroupOpponents(userId);
+      
+      if (error) {
+        console.error('❌ Error fetching group opponents:', error);
+        Alert.alert('Error', 'Failed to load opponents from your groups');
+        return;
+      }
+      
+      if (opponents && opponents.length > 0) {
+        setGroupOpponents(opponents);
+        setCurrentOpponent(opponents[0]);
+        setCurrentOpponentIndex(0);
+        
+        console.log(`🎯 Loaded ${opponents.length} group opponents for carousel`);
+      } else {
+        console.log('📝 No group opponents available');
+        setGroupOpponents([]);
+        setCurrentOpponent(null);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in fetchGroupOpponents:', error);
+      Alert.alert('Error', 'Failed to load group opponents');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch user stats
   const fetchUserStats = async (userId: string) => {
     try {
       console.log('📈 Fetching user stats for:', userId);
@@ -158,92 +174,41 @@ export const StatsScreen: React.FC = () => {
     }
   };
 
-  // Fetch opponent stats with daily reset filtering
-  const fetchOpponentStats = async (opponentUserId: string) => {
-    try {
-      console.log('📈 Fetching opponent stats for:', opponentUserId);
-      
-      const result = await getTodaysCoinTransactions(opponentUserId) as CoinTransactionResult;
-      
-      if (!result.error) {
-        const stats: StatsData = {
-          coinsGained: result.coinsGained || 0,
-          coinsLost: result.coinsLost || 0,
-          netCoins: result.netCoins || 0
-        };
-        
-        setOpponentStats(stats);
-        console.log('📈 Opponent stats updated:', stats);
-      } else {
-        console.log('📈 No opponent stats found or error:', result.error);
-        setOpponentStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
-      }
-    } catch (error) {
-      console.error('Error fetching opponent stats:', error);
-      setOpponentStats({ coinsGained: 0, coinsLost: 0, netCoins: 0 });
-    }
-  };
-
-  // Fetch all stats
+  // Fetch only user stats (opponent stats are handled by CarouselStatsCard)
   const fetchAllStats = async () => {
-    if (!currentUserId || !opponentId) {
-      console.log('📈 Cannot fetch stats - missing user IDs:', { currentUserId, opponentId });
+    if (!currentUserId) {
+      console.log('📈 Cannot fetch stats - missing user ID');
       return;
     }
     
-    console.log('📈 Fetching all stats for user and opponent');
-    setIsLoading(true);
+    console.log('📈 Fetching user stats');
     
     try {
-      await Promise.all([
-        fetchUserStats(currentUserId),
-        fetchOpponentStats(opponentId)
-      ]);
-      
+      await fetchUserStats(currentUserId);
       setLastUpdated(new Date());
       
     } catch (error) {
       console.error('Error fetching stats:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Update opponent details when opponent switches
-  useEffect(() => {
-    const handleOpponentSwitch = async (newOpponentId: string) => {
-      console.log('🔄 Opponent switch detected, new opponent:', newOpponentId);
-      setOpponentId(newOpponentId);
-      
-      // Fetch new opponent details
-      const opponent = await getCurrentOpponent(currentUserId);
-      if (opponent) {
-        setOpponentDetails({
-          id: opponent.id,
-          firstName: opponent.firstName,
-          lastName: opponent.lastName
-        });
-      }
-      
-      fetchAllStats();
-    };
+  // Handle opponent carousel changes
+  const handleOpponentChange = (opponent: GroupOpponent, index: number) => {
+    console.log('🎯 Carousel opponent changed:', opponent.firstName, opponent.lastName, 'at index', index);
+    setCurrentOpponent(opponent);
+    setCurrentOpponentIndex(index);
+    
+    // Update global timer service with current opponent for compatibility
+    globalTimerService.setCurrentOpponentId(opponent.id);
+  };
 
-    // Add event listener
-    globalTimerService.on(TIMER_EVENTS.OPPONENT_SWITCH, handleOpponentSwitch);
-
-    // Cleanup
-    return () => {
-      globalTimerService.removeListener(TIMER_EVENTS.OPPONENT_SWITCH, handleOpponentSwitch);
-    };
-  }, [currentUserId]);
-
-  // Fetch stats when screen comes into focus and when IDs are available
+  // Fetch stats when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (currentUserId && opponentId) {
+      if (currentUserId) {
         fetchAllStats();
       }
-    }, [currentUserId, opponentId])
+    }, [currentUserId])
   );
 
   // Update timer display and check for completion
@@ -274,14 +239,18 @@ export const StatsScreen: React.FC = () => {
       const { data: { user } } = await supabase.getUser();
       if (!user) return;
 
-      // Fetch final stats for both users
+      // Fetch final stats for user
       const userResult = await getTodaysCoinTransactions(user.id);
-      const opponentResult = opponentId ? await getTodaysCoinTransactions(opponentId) : { coinsGained: 0, coinsLost: 0, netCoins: 0, error: null };
+      
+      // Get opponent result if we have a current opponent
+      const opponentResult = currentOpponent ? 
+        await getTodaysCoinTransactions(currentOpponent.id) : 
+        { coinsGained: 0, coinsLost: 0, netCoins: 0, error: null };
 
       // Show the challenge results modal
       showChallengeResults({
         won: userResult.netCoins > (opponentResult.netCoins || 0),
-        opponentName: opponentName,
+        opponentName: currentOpponent ? `${currentOpponent.firstName} ${currentOpponent.lastName}` : 'Opponent',
         focusScore: userResult.netCoins || 0,
         opponentScore: opponentResult.netCoins || 0,
       });
@@ -304,27 +273,24 @@ export const StatsScreen: React.FC = () => {
     };
   }, [showModal]);
 
-  // Handle getting new opponent
-  const handleRefreshOpponent = async () => {
+  // Handle refreshing all opponents
+  const handleRefreshOpponents = async () => {
     setIsRefreshing(true);
     
-    // Force a complete opponent switch to reset stats and timer
-    console.log('🔄 Forcing opponent switch due to manual refresh');
-    await globalTimerService.forceOpponentSwitch();
-    
-    // Fetch new opponent details
-    const opponent = await getCurrentOpponent(currentUserId);
-    if (opponent) {
-      setOpponentDetails({
-        id: opponent.id,
-        firstName: opponent.firstName,
-        lastName: opponent.lastName
-      });
+    try {
+      console.log('🔄 Refreshing all group opponents');
+      
+      if (currentUserId) {
+        await fetchGroupOpponents(currentUserId);
+        await fetchAllStats();
+      }
+      
+    } catch (error) {
+      console.error('Error refreshing opponents:', error);
+      Alert.alert('Error', 'Failed to refresh opponents');
+    } finally {
+      setIsRefreshing(false);
     }
-    
-    // Refresh stats
-    await fetchAllStats();
-    setIsRefreshing(false);
   };
 
   // Handle Lock In button press - navigates to TimerScreen
@@ -340,90 +306,27 @@ export const StatsScreen: React.FC = () => {
     Alert.alert('Debug Complete', 'Check the console logs to see all your coin transactions. Look for lines starting with 💰');
   };
 
-  // Render individual stats card for user or opponent
-  const renderStatsCard = (user: UserData, isUser: boolean = false) => {
-    const handleCardPress = () => {
-      if (isUser) {
-        (navigation as any).navigate('UserStats');
-      } else {
-        // Navigate to opponent stats screen
-        (navigation as any).navigate('OpponentStats', {
-          opponentId: opponentId,
-          opponentName: user.name
-        });
-      }
-    };
-
-    return (
-      <TouchableOpacity 
-        style={styles.statsCard}
-        onPress={handleCardPress}
-        activeOpacity={0.7}
-      >
-        {/* Card header with user name and badge */}
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>
-            {user.name}
-          </Text>
-          {isUser && (
-            <View style={styles.userBadge}>
-              <Text style={styles.userBadgeText}>YOU</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Stats display */}
-        <View style={styles.statsContainer}>
-          {/* Coins Gained */}
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Coins Gained</Text>
-            <Text style={styles.gainedValue}>
-              +{user.stats.coinsGained}
-            </Text>
-          </View>
-
-          {/* Coins Lost */}
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Coins Lost</Text>
-            <Text style={styles.lostValue}>
-              -{user.stats.coinsLost}
-            </Text>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.divider} />
-
-          {/* Net Coins */}
-          <View style={styles.statItem}>
-            <Text style={styles.netLabel}>Net Coins</Text>
-            <Text style={[styles.netValue, user.stats.netCoins >= 0 ? styles.positiveNet : styles.negativeNet]}>
-              {user.stats.netCoins >= 0 ? '+' : ''}{user.stats.netCoins}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  // Note: Individual stats card rendering is now handled by CarouselStatsCard component
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{ flex: 1 }} {...panHandlers}>
+      <View style={{ flex: 1 }}>
         <ScrollView 
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
-          {/* Header with navigation and logo */}
-          <View style={styles.header}>
+          {/* Header with navigation and logo - add screen swipe navigation here */}
+          <View style={styles.header} {...panHandlers}>
             {/* Logo */}
             <View style={styles.logoContainer}>
               <GridLogo />
             </View>
           </View>
 
-          {/* Title section */}
-          <View style={styles.titleContainer}>
+          {/* Title section - add screen swipe navigation here */}
+          <View style={styles.titleContainer} {...panHandlers}>
             <Text style={styles.title}>Daily Challenge</Text>
             {lastUpdated && (
               <Text style={styles.updatedText}>
@@ -435,23 +338,26 @@ export const StatsScreen: React.FC = () => {
           {isLoading ? (
             /* Loading state */
             <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading coin data...</Text>
+              <Text style={styles.loadingText}>Loading opponents and stats...</Text>
             </View>
           ) : (
             <View style={styles.statsSection}>
-              {/* User stats card */}
-              {renderStatsCard(userData, true)}
+              {/* Carousel Stats Card - shows user vs current opponent with swipe functionality */}
+              <CarouselStatsCard
+                opponents={groupOpponents}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                currentUserStats={userStats}
+                onOpponentChange={handleOpponentChange}
+                onCardPress={() => {
+                  if (currentOpponent) {
+                    (navigation as any).navigate('UserStats');
+                  }
+                }}
+              />
 
-              {/* VS indicator */}
-              <View style={styles.vsContainer}>
-                <Text style={styles.vsText}>VS</Text>
-              </View>
-
-              {/* Opponent stats card */}
-              {renderStatsCard(opponentData, false)}
-
-              {/* Action buttons */}
-              <View style={styles.buttonContainer}>
+              {/* Action buttons - add screen swipe navigation here */}
+              <View style={styles.buttonContainer} {...panHandlers}>
                 {/* Countdown Timer */}
                 <View style={styles.countdownContainer}>
                   <Text style={styles.countdownLabel}>New opponent in:</Text>
@@ -467,15 +373,15 @@ export const StatsScreen: React.FC = () => {
                   <Text style={styles.lockInButtonText}>Lock In</Text>
                 </TouchableOpacity>
 
-                {/* Get New Opponent Button */}
+                {/* Refresh Opponents Button */}
                 <TouchableOpacity 
                   style={styles.refreshButton}
-                  onPress={handleRefreshOpponent}
+                  onPress={handleRefreshOpponents}
                   disabled={isRefreshing}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.refreshButtonText}>
-                    {isRefreshing ? 'Getting New Opponent...' : 'Get New Opponent'}
+                    {isRefreshing ? 'Refreshing Opponents...' : 'Refresh Opponents'}
                   </Text>
                 </TouchableOpacity>
 

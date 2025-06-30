@@ -93,3 +93,5 @@ Below this, there should be terms of service and privacy policy (2024-12-26)
     
     ✅ 1.34.5 Enhanced member count tracking - Updated getUserGroups service to fetch real-time member counts, groups now show accurate member counts that update when new members join (2024-12-28)
 
+✅ 1.35 Implement Stats Screen Opponent Carousel - Add carousel functionality to StatsScreen where users can swipe left/right to see opponents from different groups. Maintain same card design and features, add smooth slide animations with infinite looping. Create groupOpponentService.ts for fetching group opponents, implement separate gesture handling for card swipes vs navigation swipes, add loading states and graceful fallbacks for edge cases (2024-12-28)
+
