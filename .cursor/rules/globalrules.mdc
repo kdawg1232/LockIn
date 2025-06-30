@@ -15,6 +15,7 @@ alwaysApply: false
 - **Use consistent naming conventions, file structure, and architecture patterns** as described in `PLANNING.md`.
 - CHECK MIGRATION_CHECKLIST.md and FAMILY_CONTROLS_MIGRATION_GUIDE.md for getting family controls api to fully work in the project
 - Make sure you look at supabase.ts in order to get a better view of this project if necessary. 
+- We are using our own custom authentication and custom Supabase client. Make sure you use those methods.The project is using a custom Supabase REST client implementation (in supabase.ts) that has a specific way of chaining query operations. 
 
 
 ### 🧱 Code Structure & Modularity

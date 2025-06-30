@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform, Keyboard, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,9 @@ import { getGroupMembers, GroupMember, removeMemberFromGroup, searchUsers } from
 import { sendMultipleInvitations } from '../services/groupInvitationService';
 import { NavigationBar } from '../components/NavigationBar';
 import supabase from '../../lib/supabase';
+import { ComparisonCard } from '../components/ComparisonCard';
+import { groupPairingService } from '../services/groupPairingService';
+import { DailyPairing } from '../../types/database.types';
 
 type GroupMembersScreenRouteProp = RouteProp<RootStackParamList, 'GroupMembers'>;
 
@@ -46,16 +49,47 @@ const GridLogo: React.FC = () => {
   );
 };
 
+interface GroupMemberData {
+  user_id: string;
+  role: string;
+  users: {
+    id: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
+interface SimplifiedMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface PairedMembers {
+  user1: SimplifiedMember;
+  user2: SimplifiedMember;
+  isExtraPair?: boolean;
+}
+
+interface GroupMembersScreenParams {
+  groupId: string;
+  groupName: string;
+}
+
 export const GroupMembersScreen = () => {
   const navigation = useNavigation();
   const route = useRoute<GroupMembersScreenRouteProp>();
-  const { groupId, groupName } = route.params;
+  const { groupId, groupName } = route.params as GroupMembersScreenParams;
   
   // State management
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
-  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [members, setMembers] = useState<GroupMemberData[]>([]);
+  const [simplifiedMembers, setSimplifiedMembers] = useState<SimplifiedMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [dailyPairings, setDailyPairings] = useState<PairedMembers[]>([]);
 
   // Invitation state (integrated into main screen)
   const [showInviteSection, setShowInviteSection] = useState(false);
@@ -160,26 +194,102 @@ export const GroupMembersScreen = () => {
     }
   };
 
-  // Fetch group members
-  const fetchGroupMembers = async () => {
+  // Fetch group members and their pairings
+  const fetchMembersAndPairings = async () => {
     try {
-      console.log('🔍 Fetching members for group:', groupId);
+      setIsLoading(true);
       
-      const { data, error } = await getGroupMembers(groupId);
+      // Fetch group memberships first (without nested user data)
+      const { data: memberships, error: membershipError } = await supabase
+        .from('group_memberships')
+        .select('user_id, role')
+        .eq('group_id', groupId);
+
+      if (membershipError) throw membershipError;
+
+      // Fetch user details for each membership separately
+      const groupMembers: GroupMemberData[] = [];
+      const simplified: SimplifiedMember[] = [];
       
-      if (error) {
-        console.error('Error fetching group members:', error);
-        Alert.alert('Error', 'Failed to load group members. Please try again.');
-        return;
+      for (const membership of memberships || []) {
+        try {
+          // Get user details for this membership
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, username, first_name, last_name')
+            .eq('id', membership.user_id);
+
+          if (userError) {
+            console.error('❌ Error fetching user details for:', membership.user_id, userError);
+            continue;
+          }
+
+          // Extract user data (custom client returns arrays)
+          const user = Array.isArray(userData) ? userData[0] : userData;
+          if (!user) {
+            console.error('❌ No user data found for:', membership.user_id);
+            continue;
+          }
+
+          // Add to group members with proper structure
+          groupMembers.push({
+            user_id: membership.user_id,
+            role: membership.role,
+            users: {
+              id: user.id,
+              username: user.username,
+              first_name: user.first_name,
+              last_name: user.last_name
+            }
+          });
+
+          // Add to simplified list for pairings
+          simplified.push({
+            id: user.id,
+            firstName: user.first_name,
+            lastName: user.last_name
+          });
+        } catch (userFetchError) {
+          console.error('❌ Error processing user for membership:', membership.user_id, userFetchError);
+          continue;
+        }
       }
 
-      // Only show members (people who have accepted invitations and are in group_memberships)
-      setMembers(data || []);
-      console.log('✅ Loaded', data?.length || 0, 'group members');
+      setMembers(groupMembers);
+      setSimplifiedMembers(simplified);
+
+      // Get or generate daily pairings
+      let pairings = await groupPairingService.getDailyPairings(groupId);
       
+      if (!pairings) {
+        pairings = await groupPairingService.generateDailyPairings(groupId);
+      }
+
+      if (pairings && pairings.pairs) {
+        // Convert pairings to PairedMembers format with null checks
+        const pairedMembers: PairedMembers[] = [];
+        
+        for (const pair of pairings.pairs) {
+          const user1 = simplified.find(m => m.id === pair.user1_id);
+          const user2 = simplified.find(m => m.id === pair.user2_id);
+          
+          // Only include pairs where both users exist
+          if (user1 && user2) {
+            pairedMembers.push({
+              user1,
+              user2,
+              isExtraPair: pair.is_extra_pair
+            });
+          }
+        }
+
+        setDailyPairings(pairedMembers);
+      }
+
     } catch (error) {
-      console.error('Error fetching group members:', error);
-      Alert.alert('Error', 'Failed to load group members. Please try again.');
+      console.error('Error fetching members and pairings:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -206,7 +316,7 @@ export const GroupMembersScreen = () => {
       }
 
       // Filter out users who are already members of the group
-      const memberUserIds = members.map(member => member.user_id);
+      const memberUserIds = simplifiedMembers.map(member => member.id);
       const filteredResults = (data || []).filter((searchUser: {id: string; username: string; first_name: string; last_name: string}) => 
         !memberUserIds.includes(searchUser.id)
       );
@@ -351,7 +461,7 @@ export const GroupMembersScreen = () => {
       setIsLoading(true);
       await getCurrentUser();
       await fetchGroupDetails();
-      await fetchGroupMembers();
+      await fetchMembersAndPairings();
       setIsLoading(false);
     };
 
@@ -369,7 +479,7 @@ export const GroupMembersScreen = () => {
   };
 
   // Determine member role display
-  const getMemberRoleDisplay = (member: GroupMember) => {
+  const getMemberRoleDisplay = (member: GroupMemberData) => {
     if (member.role === 'admin') {
       return member.user_id === currentUserId ? 'You (Admin)' : 'Admin';
     }
@@ -377,247 +487,323 @@ export const GroupMembersScreen = () => {
   };
 
   // Render a member card
-  const renderMemberCard = (member: GroupMember) => (
-    <View key={member.user_id} style={styles.memberCard}>
-      <View style={styles.memberCardHeader}>
-        <View style={styles.memberIconContainer}>
-          <Ionicons 
-            name={member.role === 'admin' ? 'star' : 'person'} 
-            size={20} 
-            color={member.role === 'admin' ? '#DAA000' : '#cfb991'} 
-          />
-        </View>
+  const renderMemberCard = (member: GroupMemberData) => {
+    const isCreator = member.role === 'creator';
+    const isSelf = member.user_id === currentUserId;
+    
+    return (
+      <View key={member.user_id} style={styles.memberCard}>
         <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>
-            {member.username || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown User'}
-          </Text>
-          <Text style={styles.memberRole}>
-            {getMemberRoleDisplay(member)}
-          </Text>
+          <Ionicons name="person" size={24} color="#6B7280" />
+          <View style={styles.memberTextContainer}>
+            <Text style={styles.memberName}>
+              {member.users.first_name} {member.users.last_name}
+              {isSelf && <Text style={styles.selfTag}> (You)</Text>}
+            </Text>
+            <Text style={styles.memberUsername}>@{member.users.username}</Text>
+          </View>
         </View>
-        <Text style={styles.joinedDate}>
-          Joined {formatDate(member.joined_at)}
-        </Text>
+        {isCreator && (
+          <View style={styles.creatorBadge}>
+            <Text style={styles.creatorBadgeText}>Creator</Text>
+          </View>
+        )}
       </View>
-    </View>
-  );
+    );
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchMembersAndPairings();
+    setRefreshing(false);
+  };
+
+  const handleRegeneratePairings = async () => {
+    try {
+      setIsLoading(true);
+      const newPairings = await groupPairingService.generateDailyPairings(groupId);
+      
+      if (newPairings && newPairings.pairs) {
+        // Convert new pairings to PairedMembers format with safe null checks
+        const pairedMembers: PairedMembers[] = [];
+        
+        for (const pair of newPairings.pairs) {
+          const user1 = simplifiedMembers.find(m => m.id === pair.user1_id);
+          const user2 = simplifiedMembers.find(m => m.id === pair.user2_id);
+          
+          // Only add pairs where both users exist
+          if (user1 && user2) {
+            pairedMembers.push({
+              user1,
+              user2,
+              isExtraPair: pair.is_extra_pair
+            });
+          } else {
+            console.warn('⚠️ Skipping pair with missing users:', {
+              pair,
+              user1Found: !!user1,
+              user2Found: !!user2,
+              availableUsers: simplifiedMembers.map(m => m.id)
+            });
+          }
+        }
+
+        setDailyPairings(pairedMembers);
+        console.log('✅ Successfully regenerated pairings:', pairedMembers.length, 'pairs');
+      } else {
+        console.error('❌ Failed to generate new pairings or no pairs returned');
+        Alert.alert('Error', 'Failed to generate new pairings. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error regenerating pairings:', error);
+      Alert.alert('Error', 'Failed to regenerate pairings. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+          />
+        }
       >
-        {/* Header with back button - always visible */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#000000" />
-          </TouchableOpacity>
-          
-          <View style={styles.logoContainer}>
-            <GridLogo />
-          </View>
-          
-          <View style={{ width: 40 }} />
-        </View>
-
-        <ScrollView 
-          style={styles.scrollContent} 
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.scrollContentContainer}
+        <KeyboardAvoidingView 
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
         >
-          {/* Group Information Section - hide when actively searching on small screens */}
-          {!isActivelySearching && (
-            <View style={styles.groupInfoSection}>
-              <Text style={styles.groupTitle}>{groupDetails?.name || groupName}</Text>
-              {groupDetails?.description && (
-                <Text style={styles.groupDescription}>{groupDetails.description}</Text>
-              )}
-              <Text style={styles.groupMeta}>
-                Created on {groupDetails ? formatDate(groupDetails.created_at) : 'Unknown'}
-              </Text>
-
-              <View style={styles.actionButtonsRow}>
-                {/* Invite Members Button - only show for group creators */}
-                {currentUserId && groupDetails?.creator_id === currentUserId && (
-                  <TouchableOpacity 
-                    style={styles.inviteMembersButton} 
-                    onPress={() => {
-                      setShowInviteSection(!showInviteSection);
-                      if (showInviteSection) {
-                        // Clear search when closing
-                        setInviteInput('');
-                        setSearchResults([]);
-                        setIsActivelySearching(false);
-                        Keyboard.dismiss();
-                      }
-                    }}
-                  >
-                    <Ionicons name="person-add-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.inviteMembersText}>
-                      {showInviteSection ? 'Cancel' : 'Invite Members'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* Leave Group Button - only show for non-creators */}
-                {currentUserId && groupDetails?.creator_id !== currentUserId && (
-                  <TouchableOpacity style={styles.leaveGroupButton} onPress={handleLeaveGroup}>
-                    <Ionicons name="exit-outline" size={16} color="#DC2626" />
-                    <Text style={styles.leaveGroupText}>Leave Group</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+          {/* Header with back button - always visible */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#000000" />
+            </TouchableOpacity>
+            
+            <View style={styles.logoContainer}>
+              <GridLogo />
             </View>
-          )}
-          {/* Invite Members Section - shown when toggle is active */}
-          {showInviteSection && currentUserId && groupDetails?.creator_id === currentUserId && (
-            <View style={[styles.inviteSection, isKeyboardVisible && styles.inviteSectionCompact]}>
-              {!isActivelySearching && (
-                <Text style={styles.inviteSectionTitle}>Invite New Members</Text>
-              )}
-              
-              {/* Search Input */}
-              <View style={styles.inputSection}>
-                {!isActivelySearching && (
-                  <Text style={styles.inputLabel}>Search for Friends</Text>
-                )}
-                <View style={styles.inviteInputContainer}>
-                  <TextInput
-                    style={[styles.textInput, styles.inviteInput]}
-                    value={inviteInput}
-                    onChangeText={(text) => {
-                      setInviteInput(text);
-                      handleSearchUsers(text);
-                    }}
-                    onFocus={() => setIsActivelySearching(true)}
-                    onBlur={() => {
-                      // Only stop actively searching if input is empty
-                      if (!inviteInput.trim()) {
-                        setIsActivelySearching(false);
-                      }
-                    }}
-                    placeholder="Search by username or name..."
-                    placeholderTextColor="#9CA3AF"
-                    onSubmitEditing={handleAddInvite}
-                    returnKeyType="search"
-                  />
-                  <TouchableOpacity 
-                    style={styles.addButton}
-                    onPress={handleAddInvite}
-                    disabled={!inviteInput.trim()}
-                  >
-                    {isSearching ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Ionicons name="add" size={20} color="#FFFFFF" />
-                    )}
-                  </TouchableOpacity>
-                </View>
-                {!isActivelySearching && (
-                  <Text style={styles.inputHint}>
-                    Start typing to search for users or manually enter names
-                  </Text>
-                )}
+            
+            <View style={{ width: 40 }} />
+          </View>
 
-                {/* Search Results */}
-                {searchResults.length > 0 && (
-                  <View style={styles.searchResults}>
-                    {searchResults.map((user) => (
-                      <TouchableOpacity
-                        key={user.id}
-                        style={styles.searchResultItem}
-                        onPress={() => handleAddUserFromSearch(user)}
-                      >
-                        <View style={styles.searchResultInfo}>
-                          <Ionicons name="person" size={16} color="#6B7280" />
-                          <View style={styles.searchResultText}>
-                            <Text style={styles.searchResultName}>
-                              {user.first_name} {user.last_name}
-                            </Text>
-                            <Text style={styles.searchResultUsername}>@{user.username}</Text>
+          <ScrollView 
+            style={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scrollContentContainer}
+          >
+            {/* Group Information Section - hide when actively searching on small screens */}
+            {!isActivelySearching && (
+              <View style={styles.groupInfoSection}>
+                <Text style={styles.groupTitle}>{groupDetails?.name || groupName}</Text>
+                {groupDetails?.description && (
+                  <Text style={styles.groupDescription}>{groupDetails.description}</Text>
+                )}
+                <Text style={styles.groupMeta}>
+                  Created on {groupDetails ? formatDate(groupDetails.created_at) : 'Unknown'}
+                </Text>
+
+                <View style={styles.actionButtonsRow}>
+                  {/* Invite Members Button - only show for group creators */}
+                  {currentUserId && groupDetails?.creator_id === currentUserId && (
+                    <TouchableOpacity 
+                      style={styles.inviteMembersButton} 
+                      onPress={() => {
+                        setShowInviteSection(!showInviteSection);
+                        if (showInviteSection) {
+                          // Clear search when closing
+                          setInviteInput('');
+                          setSearchResults([]);
+                          setIsActivelySearching(false);
+                          Keyboard.dismiss();
+                        }
+                      }}
+                    >
+                      <Ionicons name="person-add-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.inviteMembersText}>
+                        {showInviteSection ? 'Cancel' : 'Invite Members'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Leave Group Button - only show for non-creators */}
+                  {currentUserId && groupDetails?.creator_id !== currentUserId && (
+                    <TouchableOpacity style={styles.leaveGroupButton} onPress={handleLeaveGroup}>
+                      <Ionicons name="exit-outline" size={16} color="#DC2626" />
+                      <Text style={styles.leaveGroupText}>Leave Group</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
+            {/* Invite Members Section - shown when toggle is active */}
+            {showInviteSection && currentUserId && groupDetails?.creator_id === currentUserId && (
+              <View style={[styles.inviteSection, isKeyboardVisible && styles.inviteSectionCompact]}>
+                {!isActivelySearching && (
+                  <Text style={styles.inviteSectionTitle}>Invite New Members</Text>
+                )}
+                
+                {/* Search Input */}
+                <View style={styles.inputSection}>
+                  {!isActivelySearching && (
+                    <Text style={styles.inputLabel}>Search for Friends</Text>
+                  )}
+                  <View style={styles.inviteInputContainer}>
+                    <TextInput
+                      style={[styles.textInput, styles.inviteInput]}
+                      value={inviteInput}
+                      onChangeText={(text) => {
+                        setInviteInput(text);
+                        handleSearchUsers(text);
+                      }}
+                      onFocus={() => setIsActivelySearching(true)}
+                      onBlur={() => {
+                        // Only stop actively searching if input is empty
+                        if (!inviteInput.trim()) {
+                          setIsActivelySearching(false);
+                        }
+                      }}
+                      placeholder="Search by username or name..."
+                      placeholderTextColor="#9CA3AF"
+                      onSubmitEditing={handleAddInvite}
+                      returnKeyType="search"
+                    />
+                    <TouchableOpacity 
+                      style={styles.addButton}
+                      onPress={handleAddInvite}
+                      disabled={!inviteInput.trim()}
+                    >
+                      {isSearching ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Ionicons name="add" size={20} color="#FFFFFF" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  {!isActivelySearching && (
+                    <Text style={styles.inputHint}>
+                      Start typing to search for users or manually enter names
+                    </Text>
+                  )}
+
+                  {/* Search Results */}
+                  {searchResults.length > 0 && (
+                    <View style={styles.searchResults}>
+                      {searchResults.map((user) => (
+                        <TouchableOpacity
+                          key={user.id}
+                          style={styles.searchResultItem}
+                          onPress={() => handleAddUserFromSearch(user)}
+                        >
+                          <View style={styles.searchResultInfo}>
+                            <Ionicons name="person" size={16} color="#6B7280" />
+                            <View style={styles.searchResultText}>
+                              <Text style={styles.searchResultName}>
+                                {user.first_name} {user.last_name}
+                              </Text>
+                              <Text style={styles.searchResultUsername}>@{user.username}</Text>
+                            </View>
                           </View>
+                          <Ionicons name="add" size={16} color="#cfb991" />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {/* Invited Users List */}
+                {invitedUsers.length > 0 && (
+                  <View style={styles.invitedUsersSection}>
+                    <Text style={styles.invitedUsersTitle}>Users to Invite ({invitedUsers.length})</Text>
+                    {invitedUsers.map((user, index) => (
+                      <View key={`${user.id}-${index}`} style={styles.invitedUserItem}>
+                        <View style={styles.invitedUserInfo}>
+                          <Ionicons name="person" size={16} color="#6B7280" />
+                          <Text style={styles.invitedUserText}>{user.display}</Text>
+                          {!user.id && (
+                            <View style={styles.manualEntryBadge}>
+                              <Text style={styles.manualEntryText}>Manual</Text>
+                            </View>
+                          )}
                         </View>
-                        <Ionicons name="add" size={16} color="#cfb991" />
-                      </TouchableOpacity>
+                        <TouchableOpacity 
+                          onPress={() => handleRemoveInvite(user)}
+                          style={styles.removeButton}
+                        >
+                          <Ionicons name="close" size={16} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
                     ))}
                   </View>
                 )}
+
+                {/* Send Invitations Button */}
+                {invitedUsers.length > 0 && (
+                  <View style={styles.sendButtonContainer}>
+                    <TouchableOpacity 
+                      style={[styles.sendInvitesButton, isSendingInvites && styles.sendInvitesButtonDisabled]}
+                      onPress={handleSendInvitations}
+                      disabled={isSendingInvites}
+                    >
+                      <Text style={styles.sendInvitesButtonText}>
+                        {isSendingInvites ? 'Sending...' : 'Send Invitations'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
+            )}
 
-              {/* Invited Users List */}
-              {invitedUsers.length > 0 && (
-                <View style={styles.invitedUsersSection}>
-                  <Text style={styles.invitedUsersTitle}>Users to Invite ({invitedUsers.length})</Text>
-                  {invitedUsers.map((user, index) => (
-                    <View key={`${user.id}-${index}`} style={styles.invitedUserItem}>
-                      <View style={styles.invitedUserInfo}>
-                        <Ionicons name="person" size={16} color="#6B7280" />
-                        <Text style={styles.invitedUserText}>{user.display}</Text>
-                        {!user.id && (
-                          <View style={styles.manualEntryBadge}>
-                            <Text style={styles.manualEntryText}>Manual</Text>
-                          </View>
-                        )}
-                      </View>
-                      <TouchableOpacity 
-                        onPress={() => handleRemoveInvite(user)}
-                        style={styles.removeButton}
-                      >
-                        <Ionicons name="close" size={16} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
+            {/* Members Section - hide when actively searching */}
+            {!isActivelySearching && (
+              <View style={styles.membersSection}>
+                <Text style={styles.sectionTitle}>
+                  Members {simplifiedMembers.length > 0 && `(${simplifiedMembers.length})`}
+                </Text>
+                
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#cfb991" />
+                    <Text style={styles.loadingText}>Loading members...</Text>
+                  </View>
+                ) : simplifiedMembers.length === 0 ? (
+                  <View style={styles.emptyMembersContainer}>
+                    <Ionicons name="people-outline" size={48} color="#A67C52" />
+                    <Text style={styles.emptyMembersText}>No members found</Text>
+                    <Text style={styles.emptyMembersSubtext}>Members will appear here once they accept invitations</Text>
+                  </View>
+                ) : (
+                  <View style={styles.membersList}>
+                    {members.map(renderMemberCard)}
+                  </View>
+                )}
+              </View>
+            )}
 
-              {/* Send Invitations Button */}
-              {invitedUsers.length > 0 && (
-                <View style={styles.sendButtonContainer}>
-                  <TouchableOpacity 
-                    style={[styles.sendInvitesButton, isSendingInvites && styles.sendInvitesButtonDisabled]}
-                    onPress={handleSendInvitations}
-                    disabled={isSendingInvites}
-                  >
-                    <Text style={styles.sendInvitesButtonText}>
-                      {isSendingInvites ? 'Sending...' : 'Send Invitations'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          )}
-
-                    {/* Members Section - hide when actively searching */}
-          {!isActivelySearching && (
-            <View style={styles.membersSection}>
-              <Text style={styles.sectionTitle}>
-                Members {members.length > 0 && `(${members.length})`}
-              </Text>
-              
+            {/* Pairings List */}
+            <View style={styles.pairingsList}>
               {isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#cfb991" />
-                  <Text style={styles.loadingText}>Loading members...</Text>
-                </View>
-              ) : members.length === 0 ? (
-                <View style={styles.emptyMembersContainer}>
-                  <Ionicons name="people-outline" size={48} color="#A67C52" />
-                  <Text style={styles.emptyMembersText}>No members found</Text>
-                  <Text style={styles.emptyMembersSubtext}>Members will appear here once they accept invitations</Text>
-                </View>
+                <Text style={styles.loadingText}>Loading matchups...</Text>
+              ) : dailyPairings.length > 0 ? (
+                dailyPairings.map((pair, index) => (
+                  <ComparisonCard
+                    key={`${pair.user1.id}-${pair.user2.id}-${index}`}
+                    pair={pair}
+                  />
+                ))
               ) : (
-                <View style={styles.membersList}>
-                  {members.map(renderMemberCard)}
-                </View>
+                <Text style={styles.noDataText}>No matchups found</Text>
               )}
             </View>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-      <NavigationBar />
+          </ScrollView>
+        </KeyboardAvoidingView>
+        <NavigationBar />
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -629,6 +815,10 @@ const styles = StyleSheet.create({
   },
 
   keyboardContainer: {
+    flex: 1,
+  },
+
+  scrollView: {
     flex: 1,
   },
 
@@ -987,22 +1177,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
 
-  memberCardHeader: {
+  memberInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
 
-  memberIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F5F1E8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-
-  memberInfo: {
+  memberTextContainer: {
     flex: 1,
   },
 
@@ -1013,16 +1193,31 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
 
-  memberRole: {
+  memberUsername: {
     fontSize: 14,
-    color: '#cfb991',
-    fontWeight: '500',
+    color: '#6B7280',
+    fontFamily: 'Inter',
   },
 
-  joinedDate: {
+  selfTag: {
     fontSize: 12,
-    color: '#9D9795',
-    textAlign: 'right',
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+
+  creatorBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+
+  creatorBadgeText: {
+    fontSize: 10,
+    color: '#92400E',
+    fontFamily: 'Inter',
+    fontWeight: '600',
   },
 
   // Leave Group Button styles
@@ -1065,5 +1260,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
+  pairingsList: {
+    padding: 16,
+  },
+
+  noDataText: {
+    textAlign: 'center',
+    color: '#6B7280',
+    marginTop: 24,
+  },
 
 }); 

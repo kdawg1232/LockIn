@@ -1,5 +1,6 @@
 import supabase from '../../lib/supabase';
 import globalTimerService from './globalTimerService';
+import { Database } from '../../types/database.types';
 
 // Interface for focus session data
 export interface FocusSession {
@@ -227,77 +228,94 @@ export const getUserTotalCoins = async (userId: string): Promise<{ totalCoins: n
 /**
  * Get user's coin transactions since the last stats reset
  * Returns transactions from the last stats reset time for current daily challenge
+ * FIXED: Now returns separate gains/losses as expected by StatsScreen
  */
-export const getTodaysCoinTransactions = async (userId: string): Promise<{ 
-  coinsGained: number; 
-  coinsLost: number; 
-  netCoins: number; 
-  error: string | null 
-}> => {
+export const getTodaysCoinTransactions = async (userId: string) => {
   try {
-    // Validate userId parameter
-    if (!userId || userId.trim() === '') {
-      console.error('📊 Invalid user ID provided:', userId);
-      return { coinsGained: 0, coinsLost: 0, netCoins: 0, error: 'Invalid user ID' };
-    }
-    
-    console.log('📊 Fetching coin transactions since last stats reset for user:', userId);
-    
-    // Get the last stats reset time from global timer service
-    const lastStatsResetTime = globalTimerService.getLastStatsResetTime();
-    
-    // Use stats reset time if available, otherwise use start of today
-    let startTime: Date;
-    if (lastStatsResetTime) {
-      startTime = new Date(lastStatsResetTime);
-      console.log('📊 Using stats reset time:', startTime.toISOString());
-    } else {
-      // Fallback to start of today
-      const today = new Date();
-      startTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      console.log('📊 Using start of today (no reset time found):', startTime.toISOString());
-    }
-    
-    const endTime = new Date(); // Current time
-    
-    console.log('📊 Date range:', { startTime: startTime.toISOString(), endTime: endTime.toISOString() });
+    console.log('💰 Fetching today\'s coin transactions for user:', userId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    // Fetch all transactions for user (would be optimized with date filtering in production)
+    // Get transactions for today
     const result = await supabase
       .from('coin_transactions')
-      .select('amount, created_at')
+      .select('amount, created_at, transaction_type, description')
       .eq('user_id', userId);
 
     if (result.error) {
-      console.error('📊 Error fetching transactions:', result.error);
-      return { coinsGained: 0, coinsLost: 0, netCoins: 0, error: result.error };
+      console.error('💰 Error fetching transactions:', result.error);
+      throw result.error;
     }
 
-    console.log('📊 All transactions fetched:', result.data?.length || 0);
+    // Filter transactions for today
+    const endOfDay = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    const todaysTransactions = (result.data as CoinTransaction[])
+      .filter(t => {
+        const date = new Date(t.created_at);
+        return date >= today && date < endOfDay;
+      });
 
-    // Filter transactions since the last stats reset
-    const relevantTransactions = result.data?.filter((transaction: any) => {
-      const transactionDate = new Date(transaction.created_at);
-      return transactionDate >= startTime && transactionDate <= endTime;
-    }) || [];
+    console.log('💰 Found', todaysTransactions.length, 'transactions for today:', todaysTransactions);
 
-    console.log('📊 Transactions since last reset:', relevantTransactions.length);
+    // Calculate gains (positive amounts) and losses (negative amounts)
+    let coinsGained = 0;
+    let coinsLost = 0;
 
-    const coinsGained = relevantTransactions
-      .filter((t: any) => t.amount > 0)
-      .reduce((sum: number, t: any) => sum + t.amount, 0);
-    
-    const coinsLost = Math.abs(relevantTransactions
-      .filter((t: any) => t.amount < 0)
-      .reduce((sum: number, t: any) => sum + t.amount, 0));
-    
+    todaysTransactions.forEach(transaction => {
+      if (transaction.amount > 0) {
+        coinsGained += transaction.amount;
+      } else if (transaction.amount < 0) {
+        coinsLost += Math.abs(transaction.amount); // Store as positive number
+      }
+    });
+
     const netCoins = coinsGained - coinsLost;
 
-    console.log('📊 Calculated stats since reset:', { coinsGained, coinsLost, netCoins });
+    console.log('💰 Today\'s coin summary:', { coinsGained, coinsLost, netCoins });
 
-    return { coinsGained, coinsLost, netCoins, error: null };
+    return { coinsGained, coinsLost, netCoins };
   } catch (error) {
-    console.error('📊 Error in getTodaysCoinTransactions:', error);
-    return { coinsGained: 0, coinsLost: 0, netCoins: 0, error: 'Failed to fetch transactions since reset' };
+    console.error('Error fetching today\'s coin transactions:', error);
+    return { coinsGained: 0, coinsLost: 0, netCoins: 0 };
+  }
+};
+
+/**
+ * DEBUG FUNCTION: Get all coin transactions for a user
+ * Use this to debug where coins are coming from
+ */
+export const debugUserCoinTransactions = async (userId: string) => {
+  try {
+    console.log('🔍 DEBUG: Fetching all coin transactions for user:', userId);
+    
+    const result = await supabase
+      .from('coin_transactions')
+      .select('id, amount, transaction_type, description, created_at, session_id')
+      .eq('user_id', userId);
+
+    if (result.error) {
+      console.error('❌ Error fetching coin transactions:', result.error);
+      return;
+    }
+
+    console.log('💰 DEBUG: Found', result.data?.length || 0, 'coin transactions:');
+    
+    let totalCoins = 0;
+    result.data?.forEach((transaction: any, index: number) => {
+      totalCoins += transaction.amount;
+      console.log(`💰 Transaction ${index + 1}:`, {
+        amount: transaction.amount,
+        type: transaction.transaction_type,
+        description: transaction.description,
+        date: new Date(transaction.created_at).toLocaleString(),
+        sessionId: transaction.session_id
+      });
+    });
+    
+    console.log('💰 DEBUG: Total coins from all transactions:', totalCoins);
+    
+    return result.data;
+  } catch (error) {
+    console.error('🔍 DEBUG: Error in debugUserCoinTransactions:', error);
   }
 }; 

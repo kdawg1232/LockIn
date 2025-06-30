@@ -13,10 +13,26 @@ type RootStackParamList = {
 
 type SignUpScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SignUp'>;
 
+interface SignUpFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  username: string;
+  password: string;
+  retypePassword: string;
+}
+
+interface SignUpResult {
+  success: boolean;
+  requiresEmailConfirmation?: boolean;
+  message?: string;
+  error?: string | { message: string };
+}
+
 export const SignUpScreen = () => {
   const navigation = useNavigation<SignUpScreenNavigationProp>();
   const { refreshSession } = useContext(SessionContext);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SignUpFormData>({
     firstName: '',
     lastName: '',
     email: '',
@@ -25,7 +41,7 @@ export const SignUpScreen = () => {
     retypePassword: '',
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [focusedInput, setFocusedInput] = useState<keyof SignUpFormData | null>(null);
 
   const handleSignUp = async () => {
     // Basic validation
@@ -54,7 +70,7 @@ export const SignUpScreen = () => {
         lastName: formData.lastName
       });
 
-      const result = await authService.signUp({
+      const result: SignUpResult = await authService.signUp({
         email: formData.email,
         password: formData.password,
         username: formData.username,

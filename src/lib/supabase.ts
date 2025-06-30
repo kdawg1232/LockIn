@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Database } from '../types/database.types';
 
 // Supabase configuration
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
@@ -31,6 +32,44 @@ interface AuthResponse {
 interface DatabaseResponse<T = any> {
   data: T | null;
   error: string | null;
+}
+
+interface QueryBuilder<T> {
+  select: (columns?: string) => QueryFilter<T>;
+  insert: (values: Partial<T>) => Promise<DatabaseResponse<T>>;
+  update: (values: Partial<T>) => QueryFilter<T>;
+  delete: () => QueryFilter<T>;
+}
+
+interface QueryFilter<T> {
+  eq: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  neq: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  gt: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  gte: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  lt: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  lte: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  like: (column: string, pattern: string) => Promise<DatabaseResponse<T>>;
+  ilike: (column: string, pattern: string) => Promise<DatabaseResponse<T>>;
+  is: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  in: (column: string, values: any[]) => Promise<DatabaseResponse<T>>;
+  contains: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  containedBy: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  rangeLt: (column: string, range: any) => Promise<DatabaseResponse<T>>;
+  rangeGt: (column: string, range: any) => Promise<DatabaseResponse<T>>;
+  rangeGte: (column: string, range: any) => Promise<DatabaseResponse<T>>;
+  rangeLte: (column: string, range: any) => Promise<DatabaseResponse<T>>;
+  rangeAdjacent: (column: string, range: any) => Promise<DatabaseResponse<T>>;
+  overlaps: (column: string, value: any) => Promise<DatabaseResponse<T>>;
+  textSearch: (column: string, query: string, config?: string) => Promise<DatabaseResponse<T>>;
+  match: (query: object) => Promise<DatabaseResponse<T>>;
+  not: (column: string, operator: string, value: any) => Promise<DatabaseResponse<T>>;
+  or: (filters: string, values?: any) => Promise<DatabaseResponse<T>>;
+  filter: (column: string, operator: string, value: any) => Promise<DatabaseResponse<T>>;
+  limit: (count: number) => QueryFilter<T>;
+  order: (column: string, options?: { ascending?: boolean; nullsFirst?: boolean; foreignTable?: string }) => QueryFilter<T>;
+  single: () => Promise<DatabaseResponse<T>>;
+  maybeSingle: () => Promise<DatabaseResponse<T>>;
+  select: (columns?: string) => QueryFilter<T>;
 }
 
 class SupabaseRestClient {
@@ -204,162 +243,111 @@ class SupabaseRestClient {
   }
 
   // Database operations
-  from(table: string) {
+  from<T = any>(table: string): QueryBuilder<T> {
+    const baseUrl = `${this.baseUrl}/rest/v1/${table}`;
+    const headers = this.getAuthHeaders();
+
+    const makeRequest = async (url: string, options: RequestInit = {}): Promise<DatabaseResponse<T>> => {
+      try {
+        const response = await fetch(url, { 
+          headers: await headers,
+          ...options 
+        });
+        const data = await response.json();
+        return response.ok ? { data, error: null } : { data: null, error: data.message || 'Query failed' };
+      } catch (error) {
+        return { data: null, error: 'Network error' };
+      }
+    };
+
+    const queryFilter = this.createQueryFilter<T>(table, '*', baseUrl, headers);
+
     return {
-      // Select data
-      select: (columns = '*') => ({
-        eq: async (column: string, value: any) => {
-          try {
-            const headers = await this.getAuthHeaders();
-            const response = await fetch(
-              `${this.baseUrl}/rest/v1/${table}?select=${columns}&${column}=eq.${value}`,
-              { headers }
-            );
-            const data = await response.json();
-            
-            if (!response.ok) {
-              return { data: null, error: data.message || 'Query failed' };
-            }
-            
-            return { data, error: null };
-          } catch (error) {
-            return { data: null, error: 'Network error' };
-          }
-        },
-
-        neq: async (column: string, value: any) => {
-          try {
-            const headers = await this.getAuthHeaders();
-            const response = await fetch(
-              `${this.baseUrl}/rest/v1/${table}?select=${columns}&${column}=neq.${value}`,
-              { headers }
-            );
-            const data = await response.json();
-            
-            if (!response.ok) {
-              return { data: null, error: data.message || 'Query failed' };
-            }
-            
-            return { data, error: null };
-          } catch (error) {
-            return { data: null, error: 'Network error' };
-          }
-        },
-
-        limit: (count: number) => ({
-          single: async () => {
-            try {
-              const headers = await this.getAuthHeaders();
-              const response = await fetch(
-                `${this.baseUrl}/rest/v1/${table}?select=${columns}&limit=${count}`,
-                { headers }
-              );
-              const data = await response.json();
-              
-              if (!response.ok) {
-                return { data: null, error: data.message || 'Query failed' };
-              }
-              
-              return { data: Array.isArray(data) ? data[0] : data, error: null };
-            } catch (error) {
-              return { data: null, error: 'Network error' };
-            }
-          },
-        }),
-
-        single: async () => {
-          try {
-            const headers = await this.getAuthHeaders();
-            const response = await fetch(
-              `${this.baseUrl}/rest/v1/${table}?select=${columns}&limit=1`,
-              { headers }
-            );
-            const data = await response.json();
-            
-            if (!response.ok) {
-              return { data: null, error: data.message || 'Query failed' };
-            }
-            
-            return { data: Array.isArray(data) ? data[0] : data, error: null };
-          } catch (error) {
-            return { data: null, error: 'Network error' };
-          }
-        },
-      }),
-
-      // Insert data
-      insert: async (insertData: any) => {
-        try {
-          const headers = await this.getAuthHeaders();
-          const response = await fetch(`${this.baseUrl}/rest/v1/${table}`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(insertData),
-          });
-          
-          const data = await response.json();
-          
-          if (!response.ok) {
-            return { data: null, error: data.message || 'Insert failed' };
-          }
-          
-          return { data, error: null };
-        } catch (error) {
-          return { data: null, error: 'Network error' };
-        }
+      select: (columns = '*') => this.createQueryFilter<T>(table, columns, baseUrl, headers),
+      insert: async (values) => {
+        return makeRequest(baseUrl, {
+          method: 'POST',
+          body: JSON.stringify(values)
+        });
       },
-
-      // Update data
-      update: (updateData: any) => ({
-        eq: async (column: string, value: any) => {
-          try {
-            const headers = await this.getAuthHeaders();
-            const response = await fetch(
-              `${this.baseUrl}/rest/v1/${table}?${column}=eq.${value}`,
-              {
-                method: 'PATCH',
-                headers,
-                body: JSON.stringify(updateData),
-              }
-            );
-            
-            const data = await response.json();
-            
-            if (!response.ok) {
-              return { data: null, error: data.message || 'Update failed' };
-            }
-            
-            return { data, error: null };
-          } catch (error) {
-            return { data: null, error: 'Network error' };
-          }
-        },
+      update: (values) => ({
+        ...queryFilter,
+        eq: async (column, value) => {
+          return makeRequest(`${baseUrl}?${column}=eq.${value}`, {
+            method: 'PATCH',
+            body: JSON.stringify(values)
+          });
+        }
       }),
-
-      // Delete data
       delete: () => ({
-        eq: async (column: string, value: any) => {
-          try {
-            const headers = await this.getAuthHeaders();
-            const response = await fetch(
-              `${this.baseUrl}/rest/v1/${table}?${column}=eq.${value}`,
-              {
-                method: 'DELETE',
-                headers,
-              }
-            );
-            
-            if (!response.ok) {
-              const errorData = await response.json();
-              return { data: null, error: errorData.message || 'Delete failed' };
-            }
-            
-            return { data: null, error: null };
-          } catch (error) {
-            return { data: null, error: 'Network error' };
-          }
-        },
-      }),
+        ...queryFilter,
+        eq: async (column, value) => {
+          return makeRequest(`${baseUrl}?${column}=eq.${value}`, {
+            method: 'DELETE'
+          });
+        }
+      })
+    };
+  }
+
+  private createQueryFilter<T>(
+    table: string, 
+    columns = '*',
+    baseUrl: string,
+    headers: Promise<Record<string, string>>
+  ): QueryFilter<T> {
+    const makeRequest = async (url: string, options: RequestInit = {}): Promise<DatabaseResponse<T>> => {
+      try {
+        const response = await fetch(url, { 
+          headers: await headers,
+          ...options 
+        });
+        const data = await response.json();
+        return response.ok ? { data, error: null } : { data: null, error: data.message || 'Query failed' };
+      } catch (error) {
+        return { data: null, error: 'Network error' };
+      }
+    };
+
+    return {
+      eq: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=eq.${value}`),
+      neq: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=neq.${value}`),
+      gt: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=gt.${value}`),
+      gte: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=gte.${value}`),
+      lt: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=lt.${value}`),
+      lte: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=lte.${value}`),
+      like: async (column, pattern) => makeRequest(`${baseUrl}?select=${columns}&${column}=like.${pattern}`),
+      ilike: async (column, pattern) => makeRequest(`${baseUrl}?select=${columns}&${column}=ilike.${pattern}`),
+      is: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=is.${value}`),
+      in: async (column, values) => makeRequest(`${baseUrl}?select=${columns}&${column}=in.(${values.join(',')})`),
+      contains: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=cs.${value}`),
+      containedBy: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=cd.${value}`),
+      rangeLt: async (column, range) => makeRequest(`${baseUrl}?select=${columns}&${column}=sl.${range}`),
+      rangeGt: async (column, range) => makeRequest(`${baseUrl}?select=${columns}&${column}=sr.${range}`),
+      rangeGte: async (column, range) => makeRequest(`${baseUrl}?select=${columns}&${column}=nxl.${range}`),
+      rangeLte: async (column, range) => makeRequest(`${baseUrl}?select=${columns}&${column}=nxr.${range}`),
+      rangeAdjacent: async (column, range) => makeRequest(`${baseUrl}?select=${columns}&${column}=adj.${range}`),
+      overlaps: async (column, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=ov.${value}`),
+      textSearch: async (column, query, config) => makeRequest(`${baseUrl}?select=${columns}&${column}=fts${config ? `(${config})` : ''}.${query}`),
+      match: async (query) => makeRequest(`${baseUrl}?select=${columns}&${new URLSearchParams(query as any).toString()}`),
+      not: async (column, operator, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=not.${operator}.${value}`),
+      or: async (filters, values) => makeRequest(`${baseUrl}?select=${columns}&or=(${filters})${values ? `&${new URLSearchParams(values).toString()}` : ''}`),
+      filter: async (column, operator, value) => makeRequest(`${baseUrl}?select=${columns}&${column}=${operator}.${value}`),
+      limit: (count) => {
+        const url = `${baseUrl}?select=${columns}&limit=${count}`;
+        return {
+          ...this.createQueryFilter<T>(table, columns, baseUrl, headers),
+          single: async () => makeRequest(url)
+        };
+      },
+      order: (column, options = {}) => {
+        const { ascending = true, nullsFirst = false, foreignTable } = options;
+        const order = `${foreignTable ? `${foreignTable}.` : ''}${column}.${ascending ? 'asc' : 'desc'}.nulls${nullsFirst ? 'first' : 'last'}`;
+        return this.createQueryFilter<T>(table, columns, baseUrl, headers);
+      },
+      single: async () => makeRequest(`${baseUrl}?select=${columns}&limit=1`),
+      maybeSingle: async () => makeRequest(`${baseUrl}?select=${columns}&limit=1`),
+      select: (newColumns = '*') => this.createQueryFilter<T>(table, newColumns, baseUrl, headers)
     };
   }
 

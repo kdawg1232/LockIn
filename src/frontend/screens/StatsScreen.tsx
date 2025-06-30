@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { getTodaysCoinTransactions } from '../services/timerService';
+import { getTodaysCoinTransactions, debugUserCoinTransactions } from '../services/timerService';
 import globalTimerService, { TIMER_EVENTS } from '../services/globalTimerService';
 import { getCurrentOpponent } from '../services/opponentService';
 import supabase from '../../lib/supabase';
@@ -26,8 +26,8 @@ interface UserData {
 
 // Route params interface
 interface StatsScreenParams {
-  opponentName: string;
-  opponentId: string;
+  opponentName?: string;
+  opponentId?: string;
 }
 
 // Add interface for opponent details
@@ -37,10 +37,18 @@ interface OpponentDetails {
   lastName: string;
 }
 
+// Interface for coin transaction result
+interface CoinTransactionResult {
+  coinsGained: number;
+  coinsLost: number;
+  netCoins: number;
+  error?: string | null;
+}
+
 export const StatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const params = route.params as StatsScreenParams;
+  const params = route.params as StatsScreenParams | undefined;
   const { showChallengeResults } = useGlobalModal();
   
   // Add swipe navigation support
@@ -118,14 +126,13 @@ export const StatsScreen: React.FC = () => {
     try {
       console.log('📈 Fetching user stats for:', userId);
       
-      const result = await getTodaysCoinTransactions(userId);
+      const result = await getTodaysCoinTransactions(userId) as CoinTransactionResult;
       
       if (!result.error) {
-        // Use the stats directly from the service
-        const stats = {
-          coinsGained: result.coinsGained,
-          coinsLost: result.coinsLost,
-          netCoins: result.netCoins
+        const stats: StatsData = {
+          coinsGained: result.coinsGained || 0,
+          coinsLost: result.coinsLost || 0,
+          netCoins: result.netCoins || 0
         };
         
         setUserStats(stats);
@@ -145,14 +152,13 @@ export const StatsScreen: React.FC = () => {
     try {
       console.log('📈 Fetching opponent stats for:', opponentUserId);
       
-      const result = await getTodaysCoinTransactions(opponentUserId);
+      const result = await getTodaysCoinTransactions(opponentUserId) as CoinTransactionResult;
       
       if (!result.error) {
-        // Use the stats directly from the service
-        const stats = {
-          coinsGained: result.coinsGained,
-          coinsLost: result.coinsLost,
-          netCoins: result.netCoins
+        const stats: StatsData = {
+          coinsGained: result.coinsGained || 0,
+          coinsLost: result.coinsLost || 0,
+          netCoins: result.netCoins || 0
         };
         
         setOpponentStats(stats);
@@ -314,6 +320,14 @@ export const StatsScreen: React.FC = () => {
     (navigation as any).navigate('Timer');
   };
 
+  // DEBUG: Handle coin transaction debugging
+  const handleDebugCoins = async () => {
+    if (!currentUserId) return;
+    console.log('🔍 DEBUG: Starting coin transaction debug for current user...');
+    await debugUserCoinTransactions(currentUserId);
+    Alert.alert('Debug Complete', 'Check the console logs to see all your coin transactions. Look for lines starting with 💰');
+  };
+
   // Render individual stats card for user or opponent
   const renderStatsCard = (user: UserData, isUser: boolean = false) => {
     const handleCardPress = () => {
@@ -382,7 +396,12 @@ export const StatsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={{ flex: 1 }} {...panHandlers}>
-        <View style={styles.content}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
           {/* Header with navigation and logo */}
           <View style={styles.header}>
             {/* Logo */}
@@ -447,10 +466,19 @@ export const StatsScreen: React.FC = () => {
                     {isRefreshing ? 'Getting New Opponent...' : 'Get New Opponent'}
                   </Text>
                 </TouchableOpacity>
+
+                {/* DEBUG: Debug Coins Button (temporary for development) */}
+                <TouchableOpacity 
+                  style={styles.debugButton}
+                  onPress={handleDebugCoins}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.debugButtonText}>Debug Coins</Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}
-        </View>
+        </ScrollView>
       </View>
       <NavigationBar />
     </SafeAreaView>
@@ -468,6 +496,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 40,
     paddingBottom: 20,
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 120, // Extra padding for NavigationBar
   },
 
   header: {
@@ -502,7 +541,7 @@ const styles = StyleSheet.create({
   },
 
   loadingContainer: {
-    flex: 1,
+    minHeight: 400, // Minimum height for loading state
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -514,7 +553,7 @@ const styles = StyleSheet.create({
   },
 
   statsSection: {
-    flex: 1,
+    // Removed flex: 1 for ScrollView compatibility
   },
 
   statsCard: {
@@ -627,7 +666,7 @@ const styles = StyleSheet.create({
   },
 
   buttonContainer: {
-    marginTop: 'auto',
+    marginTop: 24, // Fixed margin for ScrollView compatibility
     paddingTop: 24,
   },
 
@@ -678,6 +717,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+
+  // DEBUG: Debug button styles (temporary for development)
+  debugButton: {
+    backgroundColor: '#6B7280',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    width: '100%',
+    marginTop: 8,
+  },
+
+  debugButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
     textAlign: 'center',
     fontFamily: 'Inter',
   },

@@ -9,6 +9,7 @@ import { getUserProfile, UserProfileData } from '../services/profileService';
 import { getRecentChallengeHistory, CalendarDay } from '../services/challengeHistoryService';
 import { getPendingInvitationCount } from '../services/groupInvitationService';
 import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
+import { debugUserCoinTransactions } from '../services/timerService';
 
 // Interface for enhanced user profile data
 interface UserProfile {
@@ -156,6 +157,14 @@ export const ProfileScreen: React.FC = () => {
   // Handle settings navigation (task 1.31)
   const handleSettingsNavigation = () => {
     navigation.navigate('SettingsPrivacy' as never);
+  };
+
+  // DEBUG: Handle coin transaction debugging
+  const handleDebugCoins = async () => {
+    if (!userProfile) return;
+    console.log('🔍 DEBUG: Starting coin transaction debug...');
+    await debugUserCoinTransactions(userProfile.id);
+    Alert.alert('Debug Complete', 'Check the console logs to see all your coin transactions. Look for lines starting with 💰');
   };
 
   // Render calendar square for a specific day
