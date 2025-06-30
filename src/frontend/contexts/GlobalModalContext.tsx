@@ -8,48 +8,51 @@ interface ChallengeResult {
   opponentScore: number;
 }
 
+type ModalType = 'challengeResults' | null;
+
 interface GlobalModalContextType {
-  showChallengeResults: (result: ChallengeResult, onClose?: () => void) => void;
+  activeModal: ModalType;
+  showModal: (modalType: ModalType) => void;
+  hideModal: () => void;
+  showChallengeResults: (result: any) => void;
 }
 
-const GlobalModalContext = createContext<GlobalModalContextType | undefined>(undefined);
-
-export const useGlobalModal = () => {
-  const context = useContext(GlobalModalContext);
-  if (!context) {
-    throw new Error('useGlobalModal must be used within a GlobalModalProvider');
-  }
-  return context;
-};
+const GlobalModalContext = createContext<GlobalModalContextType>({
+  activeModal: null,
+  showModal: () => {},
+  hideModal: () => {},
+  showChallengeResults: () => {},
+});
 
 export const GlobalModalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [challengeResult, setChallengeResult] = useState<ChallengeResult | null>(null);
-  const [onCloseCallback, setOnCloseCallback] = useState<(() => void) | null>(null);
+  const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const [challengeResult, setChallengeResult] = useState<any>(null);
 
-  const showChallengeResults = (result: ChallengeResult, onClose?: () => void) => {
-    setChallengeResult(result);
-    setOnCloseCallback(onClose ? () => onClose : null);
+  const showModal = (modalType: ModalType) => {
+    setActiveModal(modalType);
   };
 
-  const handleClose = () => {
-    setChallengeResult(null);
-    // Call the callback if it exists
-    if (onCloseCallback) {
-      onCloseCallback();
-      setOnCloseCallback(null);
-    }
+  const hideModal = () => {
+    setActiveModal(null);
+  };
+
+  const showChallengeResults = (result: any) => {
+    setChallengeResult(result);
+    showModal('challengeResults');
   };
 
   return (
-    <GlobalModalContext.Provider value={{ showChallengeResults }}>
+    <GlobalModalContext.Provider
+      value={{
+        activeModal,
+        showModal,
+        hideModal,
+        showChallengeResults,
+      }}
+    >
       {children}
-      {challengeResult && (
-        <ChallengeResultsModal
-          visible={true}
-          onClose={handleClose}
-          result={challengeResult}
-        />
-      )}
     </GlobalModalContext.Provider>
   );
-}; 
+};
+
+export const useGlobalModal = () => useContext(GlobalModalContext); 

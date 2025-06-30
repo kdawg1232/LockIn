@@ -34,11 +34,15 @@ export interface OpponentSwitchCallback {
   onOpponentSwitch: (newOpponentId: string) => void;
 }
 
-interface ChallengeResultEvent {
-  won: boolean;
+interface GroupChallengeResult {
+  groupName: string;
   opponentName: string;
-  focusScore: number; // Coins gained by user during this challenge
-  opponentScore: number; // Coins gained by opponent during this challenge
+  focusScore: number;
+  opponentScore: number;
+}
+
+interface ChallengeResultEvent {
+  results: GroupChallengeResult[];
 }
 
 /**
@@ -167,54 +171,81 @@ class GlobalTimerService extends EventEmitter {
 
   // Handle opponent switching when timer expires
   private async handleOpponentSwitch() {
-    if (this.currentOpponentId) {
-      try {
-        const { data: { user } } = await supabase.getUser();
-        if (!user?.id) return;
+    try {
+      const { data: { user } } = await supabase.getUser();
+      if (!user?.id) return;
 
-        // Get today's coin transactions for both users before processing resolution
-        const { getTodaysCoinTransactions, resetDailyCoins } = await import('./timerService');
-        const [userStatsResult, opponentStatsResult] = await Promise.all([
-          getTodaysCoinTransactions(user.id),
-          getTodaysCoinTransactions(this.currentOpponentId)
-        ]);
+      // Get all group pairings for the user
+      const { groupPairingService } = await import('./groupPairingService');
+      const groupPairings = await groupPairingService.getUserGroupPairings(user.id);
+
+      // Get today's coin transactions for both users before processing resolution
+      const { getTodaysCoinTransactions, resetDailyCoins } = await import('./timerService');
+      
+      const results: GroupChallengeResult[] = [];
+
+      // Process each group's results
+      for (const groupPairing of groupPairings) {
+        const { groupId, groupName, pairing } = groupPairing;
         
-        // Reset daily coins for both users
-        await Promise.all([
-          resetDailyCoins(user.id),
-          resetDailyCoins(this.currentOpponentId)
-        ]);
-
-        const resolution = await processDailyChallengeResolution(user.id, this.currentOpponentId);
+        // Find the user's opponent in this group's pairs
+        const userPair = pairing.pairs.find(pair => 
+          pair.user1_id === user.id || pair.user2_id === user.id
+        );
         
-        if (resolution.success && resolution.result) {
-          // Emit the challenge result for the modal to display using today's coins gained
-          this.emit(TIMER_EVENTS.CHALLENGE_RESULT, {
-            won: resolution.result.outcome === 'win',
-            opponentName: 'Opponent', // We don't have the opponent name in the result
-            focusScore: userStatsResult.netCoins || 0, // Use coins gained today, not total coins
-            opponentScore: opponentStatsResult.netCoins || 0, // Use coins gained today, not total coins
-          } as ChallengeResultEvent);
-        }
+        if (userPair) {
+          const opponentId = userPair.user1_id === user.id ? userPair.user2_id : userPair.user1_id;
+          
+          // Get opponent details
+          const { data: opponentData } = await supabase
+            .from('users')
+            .select('first_name, last_name')
+            .eq('id', opponentId);
+            
+          if (opponentData && opponentData.length > 0) {
+            const opponent = opponentData[0];
+            
+            // Get stats for both users
+            const [userStatsResult, opponentStatsResult] = await Promise.all([
+              getTodaysCoinTransactions(user.id),
+              getTodaysCoinTransactions(opponentId)
+            ]);
+            
+            // Reset daily coins for both users
+            await Promise.all([
+              resetDailyCoins(user.id),
+              resetDailyCoins(opponentId)
+            ]);
 
-        // Get new opponent
-        const newOpponent = await getNewOpponent(user.id);
-        if (newOpponent) {
-          this.currentOpponentId = newOpponent.id;
-          await AsyncStorage.setItem(CURRENT_OPPONENT_ID_KEY, newOpponent.id);
-          
-          const now = Date.now();
-          this.lastStatsResetTime = now;
-          await AsyncStorage.setItem(DAILY_STATS_RESET_KEY, now.toString());
-          
-          await this.setNextOpponentTime();
-          
-          // Emit the opponent switch event
-          this.emit(TIMER_EVENTS.OPPONENT_SWITCH, newOpponent.id);
+            // Process challenge resolution
+            const resolution = await processDailyChallengeResolution(user.id, opponentId);
+            
+            if (resolution.success && resolution.result) {
+              results.push({
+                groupName,
+                opponentName: `${opponent.first_name} ${opponent.last_name}`,
+                focusScore: userStatsResult.netCoins || 0,
+                opponentScore: opponentStatsResult.netCoins || 0
+              });
+            }
+          }
         }
-      } catch (error) {
-        console.error('Error handling opponent switch:', error);
       }
+
+      // Emit the challenge results for all groups
+      if (results.length > 0) {
+        this.emit(TIMER_EVENTS.CHALLENGE_RESULT, { results } as ChallengeResultEvent);
+      }
+
+      // Get new opponent
+      const newOpponent = await getNewOpponent(user.id);
+      if (newOpponent) {
+        this.currentOpponentId = newOpponent.id;
+        await AsyncStorage.setItem(CURRENT_OPPONENT_ID_KEY, newOpponent.id);
+        this.emit(TIMER_EVENTS.OPPONENT_SWITCH, newOpponent.id);
+      }
+    } catch (error) {
+      console.error('Error in handleOpponentSwitch:', error);
     }
   }
 

@@ -10,6 +10,7 @@ import { NavigationBar } from '../components/NavigationBar';
 import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
 import { useGlobalModal } from '../contexts/GlobalModalContext';
 import { GridLogo } from '../components/GridLogo';
+import { ChallengeResultsModal } from '../components/ChallengeResultsModal';
 
 // Interface for daily stats data
 interface StatsData {
@@ -49,7 +50,7 @@ export const StatsScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const params = route.params as StatsScreenParams | undefined;
-  const { showChallengeResults } = useGlobalModal();
+  const { showChallengeResults, showModal, hideModal, activeModal } = useGlobalModal();
   
   // Add swipe navigation support
   const { panHandlers } = useSwipeNavigation('Stats');
@@ -82,6 +83,16 @@ export const StatsScreen: React.FC = () => {
     name: opponentDetails ? `${opponentDetails.firstName} ${opponentDetails.lastName}` : 'Opponent',
     stats: opponentStats
   };
+
+  // Inside the component:
+  const [challengeResults, setChallengeResults] = useState<{
+    results: {
+      groupName: string;
+      opponentName: string;
+      focusScore: number;
+      opponentScore: number;
+    }[];
+  } | null>(null);
 
   // Initialize current user and opponent
   useEffect(() => {
@@ -281,16 +292,17 @@ export const StatsScreen: React.FC = () => {
 
   // Listen for challenge results
   useEffect(() => {
-    const resultListener = (result: any) => {
-      showChallengeResults(result);
+    const handleChallengeResult = (result: any) => {
+      setChallengeResults(result);
+      showModal('challengeResults');
     };
 
-    globalTimerService.on(TIMER_EVENTS.CHALLENGE_RESULT, resultListener);
+    globalTimerService.on(TIMER_EVENTS.CHALLENGE_RESULT, handleChallengeResult);
 
     return () => {
-      globalTimerService.removeListener(TIMER_EVENTS.CHALLENGE_RESULT, resultListener);
+      globalTimerService.removeListener(TIMER_EVENTS.CHALLENGE_RESULT, handleChallengeResult);
     };
-  }, [showChallengeResults]);
+  }, [showModal]);
 
   // Handle getting new opponent
   const handleRefreshOpponent = async () => {
@@ -481,6 +493,18 @@ export const StatsScreen: React.FC = () => {
         </ScrollView>
       </View>
       <NavigationBar />
+
+      {/* Challenge Results Modal */}
+      {challengeResults && (
+        <ChallengeResultsModal
+          visible={activeModal === 'challengeResults'}
+          onClose={() => {
+            hideModal();
+            setChallengeResults(null);
+          }}
+          results={challengeResults.results}
+        />
+      )}
     </SafeAreaView>
   );
 };
