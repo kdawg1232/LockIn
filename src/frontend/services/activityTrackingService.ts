@@ -45,7 +45,7 @@ class ActivityTrackingService {
             console.error('📱 Error getting Screen Time data:', error);
             
             // If authorization is needed, request it
-            if (error.code === 'NOT_AUTHORIZED') {
+            if (error && typeof error === 'object' && 'code' in error && (error as any).code === 'NOT_AUTHORIZED') {
                 console.log('📱 Screen Time not authorized - requesting authorization');
                 try {
                     await this.requestScreenTimeAuthorization();
