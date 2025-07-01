@@ -34,9 +34,11 @@ class NavigationService {
         this.navigate('Timer');
         return true;
       } else {
-        // Session completed while app was closed - clear it
-        await globalTimerService.completeFocusSession();
-        return false;
+        // Session completed while app was closed - DON'T auto-complete here
+        // Let the TimerDistractionScreen handle completion when it detects this
+        console.log('Expired focus session detected - will let TimerDistractionScreen handle completion');
+        this.navigate('Timer'); // Still navigate to timer screen to handle completion
+        return true;
       }
     }
     

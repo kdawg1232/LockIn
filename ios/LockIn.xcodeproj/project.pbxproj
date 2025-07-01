@@ -12,6 +12,8 @@
 		255C42712E0F3F7E00F1CE29 /* AppSelectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 255C426C2E0F3F7E00F1CE29 /* AppSelectionManager.m */; };
 		255C42722E0F3F7E00F1CE29 /* AppSelectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 255C426D2E0F3F7E00F1CE29 /* AppSelectionManager.swift */; };
 		255C42732E0F3F7E00F1CE29 /* FamilyControlsManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 255C426E2E0F3F7E00F1CE29 /* FamilyControlsManager.m */; };
+		255C42802E0F4A7E00F1CE29 /* ScreenTimeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 255C427F2E0F4A7E00F1CE29 /* ScreenTimeManager.swift */; };
+		255C42812E0F4A7E00F1CE29 /* ScreenTimeManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 255C427E2E0F4A7E00F1CE29 /* ScreenTimeManager.m */; };
 		255C42752E0F43F500F1CE29 /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 255C42742E0F43F500F1CE29 /* FamilyControls.framework */; };
 		255C42772E0F440000F1CE29 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 255C42762E0F440000F1CE29 /* ManagedSettings.framework */; };
 		255C42792E0F440D00F1CE29 /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 255C42782E0F440D00F1CE29 /* DeviceActivity.framework */; };
@@ -28,10 +30,12 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = LockIn/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = LockIn/Info.plist; sourceTree = "<group>"; };
 		1FD9AE2FB0DD6CEA45931489 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = LockIn/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		255C426C2E0F3F7E00F1CE29 /* AppSelectionManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "LockIn/Modules/AppSelectionManager.m"; sourceTree = "<group>"; };
-		255C426D2E0F3F7E00F1CE29 /* AppSelectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LockIn/Modules/AppSelectionManager.swift"; sourceTree = "<group>"; };
-		255C426E2E0F3F7E00F1CE29 /* FamilyControlsManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "LockIn/Modules/FamilyControlsManager.m"; sourceTree = "<group>"; };
-		255C426F2E0F3F7E00F1CE29 /* FamilyControlsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LockIn/Modules/FamilyControlsManager.swift"; sourceTree = "<group>"; };
+		255C426C2E0F3F7E00F1CE29 /* AppSelectionManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LockIn/Modules/AppSelectionManager.m; sourceTree = "<group>"; };
+		255C426D2E0F3F7E00F1CE29 /* AppSelectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockIn/Modules/AppSelectionManager.swift; sourceTree = "<group>"; };
+		255C426E2E0F3F7E00F1CE29 /* FamilyControlsManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LockIn/Modules/FamilyControlsManager.m; sourceTree = "<group>"; };
+		255C426F2E0F3F7E00F1CE29 /* FamilyControlsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockIn/Modules/FamilyControlsManager.swift; sourceTree = "<group>"; };
+		255C427E2E0F4A7E00F1CE29 /* ScreenTimeManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LockIn/Modules/ScreenTimeManager.m; sourceTree = "<group>"; };
+		255C427F2E0F4A7E00F1CE29 /* ScreenTimeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockIn/Modules/ScreenTimeManager.swift; sourceTree = "<group>"; };
 		255C42742E0F43F500F1CE29 /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = System/Library/Frameworks/FamilyControls.framework; sourceTree = SDKROOT; };
 		255C42762E0F440000F1CE29 /* ManagedSettings.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettings.framework; path = System/Library/Frameworks/ManagedSettings.framework; sourceTree = SDKROOT; };
 		255C42782E0F440D00F1CE29 /* DeviceActivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = System/Library/Frameworks/DeviceActivity.framework; sourceTree = SDKROOT; };
@@ -109,6 +113,8 @@
 				255C426D2E0F3F7E00F1CE29 /* AppSelectionManager.swift */,
 				255C426E2E0F3F7E00F1CE29 /* FamilyControlsManager.m */,
 				255C426F2E0F3F7E00F1CE29 /* FamilyControlsManager.swift */,
+				255C427E2E0F4A7E00F1CE29 /* ScreenTimeManager.m */,
+				255C427F2E0F4A7E00F1CE29 /* ScreenTimeManager.swift */,
 				13B07FAE1A68108700A75B9A /* LockIn */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
@@ -358,6 +364,8 @@
 				255C42712E0F3F7E00F1CE29 /* AppSelectionManager.m in Sources */,
 				255C42722E0F3F7E00F1CE29 /* AppSelectionManager.swift in Sources */,
 				255C42732E0F3F7E00F1CE29 /* FamilyControlsManager.m in Sources */,
+				255C42802E0F4A7E00F1CE29 /* ScreenTimeManager.swift in Sources */,
+				255C42812E0F4A7E00F1CE29 /* ScreenTimeManager.m in Sources */,
 				3A6458DE2D0838F4671D46A5 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

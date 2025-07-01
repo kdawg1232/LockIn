@@ -20,7 +20,7 @@ CREATE TABLE activity_tracking (
 -- Create indexes for performance
 CREATE INDEX idx_activity_tracking_user_id ON activity_tracking(user_id);
 CREATE INDEX idx_activity_tracking_date ON activity_tracking(date);
-CREATE INDEX idx_activity_tracking_user_date ON activity_tracking(user_id, date);
+-- Note: idx_activity_tracking_user_date is not needed as UNIQUE constraint already creates an index
 
 -- Enable RLS
 ALTER TABLE activity_tracking ENABLE ROW LEVEL SECURITY;
@@ -29,8 +29,8 @@ ALTER TABLE activity_tracking ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can view all activity data" ON activity_tracking
     FOR SELECT USING (auth.uid() IS NOT NULL);
 
-CREATE POLICY "Authenticated users can insert activity data" ON activity_tracking
-    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Users can insert their own activity data" ON activity_tracking
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can update their own activity data" ON activity_tracking
     FOR UPDATE USING (auth.uid() = user_id);
@@ -59,4 +59,4 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON activity_tracking TO authenticated;
 -- Add helpful comments
 COMMENT ON TABLE activity_tracking IS 'Daily social media app usage tracking for coin penalty calculations - allows cross-user viewing for opponent stats';
 COMMENT ON COLUMN activity_tracking.app_usage IS 'JSONB array containing app usage data with time spent and coins lost per app';
-COMMENT ON COLUMN activity_tracking.total_coins_lost IS 'Total coins lost for the day calculated from app usage (1 coin per 15 minutes)'; 
+COMMENT ON COLUMN activity_tracking.total_coins_lost IS 'Total coins lost for the day calculated from app usage (1 coin per 30 minutes)'; 

@@ -5,11 +5,11 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import supabase from '../../lib/supabase';
 import { NavigationBar } from '../components/NavigationBar';
-import { getUserProfile, UserProfileData } from '../services/profileService';
+import { getUserProfile, updateUserProfile, updateProfileImage, UserProfile } from '../services/profileService';
 import { getRecentChallengeHistory, CalendarDay } from '../services/challengeHistoryService';
 import { getPendingInvitationCount } from '../services/groupInvitationService';
 import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
-import { debugUserCoinTransactions } from '../services/timerService';
+import { colors, typography, spacing, shadows, commonStyles } from '../styles/theme';
 
 // Interface for enhanced user profile data
 interface UserProfile {
@@ -159,12 +159,14 @@ export const ProfileScreen: React.FC = () => {
     navigation.navigate('SettingsPrivacy' as never);
   };
 
-  // DEBUG: Handle coin transaction debugging
-  const handleDebugCoins = async () => {
-    if (!userProfile) return;
-    console.log('🔍 DEBUG: Starting coin transaction debug...');
-    await debugUserCoinTransactions(userProfile.id);
-    Alert.alert('Debug Complete', 'Check the console logs to see all your coin transactions. Look for lines starting with 💰');
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await supabase.signOut();
+      // The auth state change will automatically navigate to sign in
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   // Render calendar square for a specific day

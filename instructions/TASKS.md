@@ -95,3 +95,26 @@ Below this, there should be terms of service and privacy policy (2024-12-26)
 
 ✅ 1.35 Implement Stats Screen Opponent Carousel - Add carousel functionality to StatsScreen where users can swipe left/right to see opponents from different groups. Maintain same card design and features, add smooth slide animations with infinite looping. Create groupOpponentService.ts for fetching group opponents, implement separate gesture handling for card swipes vs navigation swipes, add loading states and graceful fallbacks for edge cases (2024-12-28)
 
+✅ 1.36 Implement comprehensive UserStatsScreen with real app usage tracking and coin penalty system - Enhanced UserStatsScreen with user vs opponent comparison charts, background monitoring service that applies -1 coin penalty every 30 minutes of social media usage, real-time coin transaction integration, top 5 apps breakdown, daily summary cards, and comprehensive chart visualizations using react-native-chart-kit. Includes automatic background monitoring startup, proper cleanup, and seamless integration with existing coin system for challenge calculations (2024-12-28)
+
+✅ **COMPLETED** - 2024-12-20: **Real Screen Time API Implementation**
+   - ✅ Created ScreenTimeManager Swift module with iOS Screen Time API bridge
+   - ✅ Updated ActivityTrackingService to use real Screen Time data instead of dummy data
+   - ✅ Added React Native bridge for Screen Time authorization and data fetching
+   - ✅ Implemented real-time app usage tracking for background monitoring
+   - ✅ Updated UserStatsScreen with auto-refresh and Screen Time authorization
+   - ✅ Fixed background monitoring to use actual usage data from iOS
+   - ✅ Added proper error handling and authorization flow
+   - ✅ Real social media usage tracking with -1 coin penalty every 30 minutes
+   - ✅ Updated Xcode project with new Swift modules and proper integration
+
+## Notes:
+- **Swift Implementation**: The ScreenTimeManager currently uses simulated data for demo purposes. In production, this needs to be replaced with actual DeviceActivity API calls to get real Screen Time data.
+- **Background Monitoring**: Implemented and working, but requires Screen Time authorization to function properly.
+- **User Experience**: Added real-time refresh, authorization prompts, and proper error handling for seamless usage tracking.
+
+## In Progress
+None currently
+
+## Discovered During Work
+

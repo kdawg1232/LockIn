@@ -317,44 +317,4 @@ export const getTodaysCoinTransactions = async (userId: string) => {
     console.error('Error fetching today\'s coin transactions:', error);
     return { coinsGained: 0, coinsLost: 0, netCoins: 0 };
   }
-};
-
-/**
- * DEBUG FUNCTION: Get all coin transactions for a user
- * Use this to debug where coins are coming from
- */
-export const debugUserCoinTransactions = async (userId: string) => {
-  try {
-    console.log('🔍 DEBUG: Fetching all coin transactions for user:', userId);
-    
-    const result = await supabase
-      .from('coin_transactions')
-      .select('id, amount, transaction_type, description, created_at, session_id')
-      .eq('user_id', userId);
-
-    if (result.error) {
-      console.error('❌ Error fetching coin transactions:', result.error);
-      return;
-    }
-
-    console.log('💰 DEBUG: Found', result.data?.length || 0, 'coin transactions:');
-    
-    let totalCoins = 0;
-    result.data?.forEach((transaction: any, index: number) => {
-      totalCoins += transaction.amount;
-      console.log(`💰 Transaction ${index + 1}:`, {
-        amount: transaction.amount,
-        type: transaction.transaction_type,
-        description: transaction.description,
-        date: new Date(transaction.created_at).toLocaleString(),
-        sessionId: transaction.session_id
-      });
-    });
-    
-    console.log('💰 DEBUG: Total coins from all transactions:', totalCoins);
-    
-    return result.data;
-  } catch (error) {
-    console.error('🔍 DEBUG: Error in debugUserCoinTransactions:', error);
-  }
 }; 

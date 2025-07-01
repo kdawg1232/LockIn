@@ -19,6 +19,10 @@ export interface ScreenTimeData {
     category: string;
 }
 
+// Coin calculation constants
+export const MINUTES_PER_COIN = 30; // 30 minutes of usage = 1 coin lost
+export const COIN_LOSS_PER_30_MIN = 1; // 1 coin lost per 30 minutes
+
 // Constants for app tracking
 export const TRACKED_APPS: Record<string, { name: string; color: string }> = {
     'instagram': { 

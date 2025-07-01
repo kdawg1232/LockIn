@@ -1,21 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BarChart, LineChart } from 'react-native-chart-kit';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { format, subDays } from 'date-fns';
-import { AppUsageData, DailyActivityData } from '../types/ActivityTracking';
+import { AppUsageData } from '../types/ActivityTracking';
 import activityTrackingService from '../services/activityTrackingService';
 import { colors, typography, spacing, shadows, commonStyles } from '../styles/theme';
 import supabase from '../../lib/supabase';
-
-const TIME_RANGES = {
-    WEEK: 'week',
-    MONTH: 'month',
-    ALL: 'all'
-} as const;
-
-type TimeRange = typeof TIME_RANGES[keyof typeof TIME_RANGES];
 
 // Route params interface
 interface UserStatsScreenParams {
@@ -28,15 +18,15 @@ export const UserStatsScreen: React.FC = () => {
     const route = useRoute();
     const params = route.params as UserStatsScreenParams;
     
-    // Determine if viewing opponent or own stats
+    // Determine if viewing opponent or comparison mode
     const isViewingOpponent = !!params?.opponentId;
-    const targetUserId = params?.opponentId;
-    const displayName = params?.opponentName || 'Your';
+    const opponentId = params?.opponentId;
+    const opponentName = params?.opponentName || 'Opponent';
     
-    const [selectedRange, setSelectedRange] = useState<TimeRange>(TIME_RANGES.WEEK);
-    const [activityData, setActivityData] = useState<DailyActivityData[]>([]);
-    const [todayData, setTodayData] = useState<AppUsageData[]>([]);
     const [currentUserId, setCurrentUserId] = useState<string>('');
+    const [userTodayData, setUserTodayData] = useState<AppUsageData[]>([]);
+    const [opponentTodayData, setOpponentTodayData] = useState<AppUsageData[]>([]);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
 
     // Get current user ID
     useEffect(() => {
@@ -53,210 +43,175 @@ export const UserStatsScreen: React.FC = () => {
         getCurrentUser();
     }, []);
 
+    // Load today's data when user/opponent IDs are available
     useEffect(() => {
-        if (currentUserId || targetUserId) {
-            loadActivityData();
+        if (currentUserId && (isViewingOpponent ? opponentId : true)) {
+            loadTodayData();
         }
-    }, [selectedRange, currentUserId, targetUserId]);
+    }, [currentUserId, opponentId]);
 
-    const loadActivityData = async () => {
-        const today = new Date();
-        let startDate: Date;
+    // Auto-refresh data every 30 seconds for real-time updates
+    useEffect(() => {
+        if (!isViewingOpponent && currentUserId) {
+            const interval = setInterval(() => {
+                console.log('📊 Auto-refreshing real-time usage data');
+                loadTodayData();
+            }, 30000); // 30 seconds
 
-        switch (selectedRange) {
-            case TIME_RANGES.WEEK:
-                startDate = subDays(today, 7);
-                break;
-            case TIME_RANGES.MONTH:
-                startDate = subDays(today, 30);
-                break;
-            case TIME_RANGES.ALL:
-                startDate = subDays(today, 90); // Show up to 90 days
-                break;
-            default:
-                startDate = subDays(today, 7);
+            return () => clearInterval(interval);
         }
+    }, [isViewingOpponent, currentUserId]);
 
-        // Use target user ID if viewing opponent, otherwise use current user
-        const userIdToUse = isViewingOpponent ? targetUserId : currentUserId;
-        
-        if (!userIdToUse) {
-            console.log('No user ID available for loading activity data');
-            return;
-        }
-
-        console.log(`Loading activity data for ${isViewingOpponent ? 'opponent' : 'user'}:`, userIdToUse);
-
-        // For now, we'll still use the dummy data generator for range data
-        // In production, this would be optimized to query the database properly
-        const data = await activityTrackingService.getActivityRange(
-            format(startDate, 'yyyy-MM-dd'),
-            format(today, 'yyyy-MM-dd')
-        );
-        setActivityData(data);
-
-        // Load today's data for the bar chart with specific user ID
-        const todayActivityData = await activityTrackingService.getDailyActivity(
-            format(today, 'yyyy-MM-dd'),
-            userIdToUse
-        );
-        if (todayActivityData) {
-            setTodayData(todayActivityData.appUsage);
+    const loadTodayData = async () => {
+        setIsLoading(true);
+        try {
+            console.log('📊 Loading today\'s app usage data');
+            
+            const today = new Date().toISOString().split('T')[0];
+            
+            // For current user, trigger real-time data update first
+            if (!isViewingOpponent) {
+                console.log('📊 Updating current user real-time data');
+                
+                // Request Screen Time authorization if needed
+                try {
+                    const authorized = await activityTrackingService.requestScreenTimeAuthorization();
+                    if (authorized) {
+                        console.log('📊 Screen Time authorized - updating activity data');
+                        await activityTrackingService.updateActivityData();
+                    } else {
+                        console.log('📊 Screen Time not authorized - showing stored data only');
+                    }
+                } catch (authError) {
+                    console.error('📊 Authorization error:', authError);
+                }
+            }
+            
+            if (isViewingOpponent && opponentId) {
+                // Load today's data for both users
+                const [userToday, opponentToday] = await Promise.all([
+                    activityTrackingService.getDailyActivity(today, currentUserId),
+                    activityTrackingService.getDailyActivity(today, opponentId)
+                ]);
+                
+                setUserTodayData(userToday?.appUsage || []);
+                setOpponentTodayData(opponentToday?.appUsage || []);
+                
+                console.log('📊 Loaded comparison data:', {
+                    userApps: userToday?.appUsage?.length || 0,
+                    opponentApps: opponentToday?.appUsage?.length || 0
+                });
+            } else {
+                // Load today's data for user only
+                const userToday = await activityTrackingService.getDailyActivity(today, currentUserId);
+                setUserTodayData(userToday?.appUsage || []);
+                
+                console.log('📊 Loaded user data:', {
+                    userApps: userToday?.appUsage?.length || 0,
+                    totalMinutes: userToday?.appUsage?.reduce((sum, app) => sum + app.timeSpentMinutes, 0) || 0
+                });
+            }
+        } catch (error) {
+            console.error('📊 Error loading today\'s data:', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const renderTimeRangeSelector = () => (
-        <View style={styles.timeRangeContainer}>
-            {Object.values(TIME_RANGES).map((range) => (
-                <TouchableOpacity
-                    key={range}
-                    style={[
-                        styles.timeRangeButton,
-                        selectedRange === range && styles.timeRangeButtonSelected
-                    ]}
-                    onPress={() => setSelectedRange(range)}
-                >
-                    <Text
-                        style={[
-                            styles.timeRangeText,
-                            selectedRange === range && styles.timeRangeTextSelected
-                        ]}
-                    >
-                        {range.charAt(0).toUpperCase() + range.slice(1)}
-                    </Text>
-                </TouchableOpacity>
-            ))}
-        </View>
-    );
+    const renderTopAppsBreakdown = () => {
+        const topUserApps = userTodayData
+            .sort((a, b) => b.timeSpentMinutes - a.timeSpentMinutes)
+            .slice(0, 5);
 
-    const renderTodayUsageChart = () => {
-        if (!todayData.length) {
-            return (
-                <View style={styles.chartContainer}>
-                    <Text style={styles.chartTitle}>{displayName} App Usage Today (Minutes)</Text>
+        return (
+            <View style={styles.breakdownContainer}>
+                <Text style={styles.breakdownTitle}>
+                    {isViewingOpponent ? 'Your Top 5 Apps Today' : 'Top 5 Apps Today'}
+                </Text>
+                {topUserApps.length === 0 ? (
                     <View style={styles.noDataContainer}>
-                        <Text style={styles.noDataText}>No app usage data available</Text>
-                        <Text style={styles.noDataSubtext}>
-                            {Platform.OS === 'ios' ? 
-                                'Screen Time API integration coming soon' : 
-                                'Feature available on iOS devices only'
-                            }
+                        <Text style={styles.noDataText}>
+                            {isViewingOpponent 
+                                ? 'No app usage recorded today' 
+                                : 'No social media usage detected today 🎉'}
                         </Text>
+                        {!isViewingOpponent && (
+                            <Text style={styles.noDataSubtext}>
+                                Keep it up! Or make sure Screen Time permissions are enabled.
+                            </Text>
+                        )}
                     </View>
-                </View>
-            );
-        }
-
-        const data = {
-            labels: todayData.map(app => app.appName.split(' ')[0]), // Shorten names for display
-            datasets: [{
-                data: todayData.map(app => app.timeSpentMinutes)
-            }]
-        };
-
-        return (
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>{displayName} App Usage Today (Minutes)</Text>
-                <BarChart
-                    data={data}
-                    width={350}
-                    height={220}
-                    yAxisLabel=""
-                    yAxisSuffix=""
-                    chartConfig={{
-                        backgroundColor: colors.white,
-                        backgroundGradientFrom: colors.white,
-                        backgroundGradientTo: colors.white,
-                        decimalPlaces: 0,
-                        color: (opacity = 1) => `rgba(207, 185, 145, ${opacity})`, // Primary color with opacity
-                        labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`, // Black text
-                        style: {
-                            borderRadius: 16
-                        }
-                    }}
-                    style={styles.chart}
-                />
+                ) : (
+                    <>
+                        {topUserApps.map((app, index) => (
+                            <View key={app.appId} style={styles.appBreakdownItem}>
+                                <View style={[styles.appColorDot, { backgroundColor: app.color }]} />
+                                <Text style={styles.appName}>{app.appName}</Text>
+                                <View style={styles.appStatsContainer}>
+                                    <Text style={styles.appTime}>{app.timeSpentMinutes} min</Text>
+                                    <Text style={styles.appCoins}>-{app.coinsLost}</Text>
+                                </View>
+                            </View>
+                        ))}
+                        <View style={styles.totalSummary}>
+                            <Text style={styles.totalText}>
+                                Total: {topUserApps.reduce((sum, app) => sum + app.timeSpentMinutes, 0)} min, 
+                                -{topUserApps.reduce((sum, app) => sum + app.coinsLost, 0)} coins
+                            </Text>
+                        </View>
+                    </>
+                )}
+                
+                {isViewingOpponent && (
+                    <>
+                        <Text style={[styles.breakdownTitle, styles.opponentTitle]}>
+                            {opponentName}'s Top 5 Apps Today
+                        </Text>
+                        {opponentTodayData.length === 0 ? (
+                            <View style={styles.noDataContainer}>
+                                <Text style={styles.noDataText}>
+                                    No app usage recorded for opponent today
+                                </Text>
+                            </View>
+                        ) : (
+                            <>
+                                {opponentTodayData
+                                    .sort((a, b) => b.timeSpentMinutes - a.timeSpentMinutes)
+                                    .slice(0, 5)
+                                    .map((app, index) => (
+                                        <View key={app.appId} style={styles.appBreakdownItem}>
+                                            <View style={[styles.appColorDot, { backgroundColor: app.color }]} />
+                                            <Text style={styles.appName}>{app.appName}</Text>
+                                            <View style={styles.appStatsContainer}>
+                                                <Text style={styles.appTime}>{app.timeSpentMinutes} min</Text>
+                                                <Text style={styles.appCoins}>-{app.coinsLost}</Text>
+                                            </View>
+                                        </View>
+                                    ))}
+                                <View style={styles.totalSummary}>
+                                    <Text style={styles.totalText}>
+                                        Total: {opponentTodayData.slice(0, 5).reduce((sum, app) => sum + app.timeSpentMinutes, 0)} min, 
+                                        -{opponentTodayData.slice(0, 5).reduce((sum, app) => sum + app.coinsLost, 0)} coins
+                                    </Text>
+                                </View>
+                            </>
+                        )}
+                    </>
+                )}
             </View>
         );
     };
 
-    const renderTrendChart = () => {
-        if (!activityData.length) {
-            return (
-                <View style={styles.chartContainer}>
-                    <Text style={styles.chartTitle}>{displayName} Coins Lost Over Time</Text>
-                    <View style={styles.noDataContainer}>
-                        <Text style={styles.noDataText}>No trend data available</Text>
-                    </View>
-                </View>
-            );
-        }
-
-        const data = {
-            labels: activityData.map(day => format(new Date(day.date), 'MM/dd')),
-            datasets: [{
-                data: activityData.map(day => day.totalCoinsLost)
-            }]
-        };
-
+    if (isLoading) {
         return (
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>{displayName} Coins Lost Over Time</Text>
-                <LineChart
-                    data={data}
-                    width={350}
-                    height={220}
-                    yAxisLabel=""
-                    yAxisSuffix=""
-                    chartConfig={{
-                        backgroundColor: colors.white,
-                        backgroundGradientFrom: colors.white,
-                        backgroundGradientTo: colors.white,
-                        decimalPlaces: 0,
-                        color: (opacity = 1) => `rgba(142, 111, 62, ${opacity})`, // Secondary color with opacity
-                        labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`, // Black text
-                        style: {
-                            borderRadius: 16
-                        }
-                    }}
-                    style={styles.chart}
-                    bezier
-                />
-            </View>
-        );
-    };
-
-    const renderAppBreakdown = () => (
-        <View style={styles.breakdownContainer}>
-            <Text style={styles.breakdownTitle}>{displayName} Breakdown Today</Text>
-            {todayData.length > 0 ? (
-                todayData.map(app => (
-                    <View key={app.appId} style={styles.appRow}>
-                        <View style={styles.appInfo}>
-                            <View 
-                                style={[
-                                    styles.appColor, 
-                                    { backgroundColor: app.color }
-                                ]} 
-                            />
-                            <Text style={styles.appName}>{app.appName}</Text>
-                        </View>
-                        <View style={styles.appStats}>
-                            <Text style={styles.timeSpent}>{app.timeSpentMinutes}m</Text>
-                            <Text style={styles.coinsLost}>-{app.coinsLost} 🪙</Text>
-                        </View>
-                    </View>
-                ))
-            ) : (
-                <View style={styles.noDataContainer}>
-                    <Text style={styles.noDataText}>No app usage today</Text>
-                    <Text style={styles.noDataSubtext}>
-                        {isViewingOpponent ? 'Opponent stayed focused!' : 'Stay focused and keep your coins!'}
-                    </Text>
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.loadingText}>Loading usage data...</Text>
                 </View>
-            )}
-        </View>
-    );
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -268,22 +223,21 @@ export const UserStatsScreen: React.FC = () => {
                     <Text style={styles.backButtonText}>← Back</Text>
                 </TouchableOpacity>
                 <Text style={styles.title}>
-                    {isViewingOpponent ? `${params?.opponentName}'s Stats` : 'Your App Usage'}
+                    {isViewingOpponent ? `You vs ${opponentName}` : 'Your App Usage'}
                 </Text>
-                <View style={styles.headerSpacer} />
+                {!isViewingOpponent && (
+                    <TouchableOpacity 
+                        style={styles.refreshButton}
+                        onPress={loadTodayData}
+                    >
+                        <Text style={styles.refreshButtonText}>🔄</Text>
+                    </TouchableOpacity>
+                )}
+                {isViewingOpponent && <View style={styles.headerSpacer} />}
             </View>
 
             <ScrollView style={styles.scrollView}>
-                {renderTimeRangeSelector()}
-                {renderTodayUsageChart()}
-                {renderTrendChart()}
-                {renderAppBreakdown()}
-                
-                {Platform.OS !== 'ios' && (
-                    <Text style={styles.disclaimer}>
-                        Note: Detailed app usage tracking is only available on iOS devices.
-                    </Text>
-                )}
+                {renderTopAppsBreakdown()}
             </ScrollView>
         </SafeAreaView>
     );
@@ -319,47 +273,11 @@ const styles = StyleSheet.create({
         width: 50 // Match back button width for centering
     },
     scrollView: {
-        flex: 1
-    },
-    timeRangeContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        paddingVertical: spacing.md,
-        gap: spacing.sm
-    },
-    timeRangeButton: {
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        borderRadius: 20,
-        backgroundColor: colors.cream
-    },
-    timeRangeButtonSelected: {
-        backgroundColor: colors.primary
-    },
-    timeRangeText: {
-        ...commonStyles.body,
-        color: colors.black
-    },
-    timeRangeTextSelected: {
-        color: colors.black,
-        fontWeight: typography.fontWeight.bold,
-    },
-    chartContainer: {
-        padding: spacing.md,
-        marginBottom: spacing.md
-    },
-    chartTitle: {
-        ...commonStyles.heading3,
-        color: colors.black,
-        marginBottom: spacing.sm,
-        textAlign: 'center'
-    },
-    chart: {
-        marginVertical: spacing.md,
-        borderRadius: 16
+        flex: 1,
+        paddingTop: spacing.md
     },
     breakdownContainer: {
-        padding: spacing.md,
+        padding: spacing.lg,
         backgroundColor: colors.white,
         margin: spacing.md,
         borderRadius: 16,
@@ -370,64 +288,100 @@ const styles = StyleSheet.create({
     breakdownTitle: {
         ...commonStyles.heading3,
         color: colors.black,
-        marginBottom: spacing.md
+        marginBottom: spacing.lg,
+        textAlign: 'center'
     },
-    appRow: {
+    opponentTitle: {
+        marginTop: spacing.xl,
+        paddingTop: spacing.lg,
+        borderTopWidth: 1,
+        borderTopColor: colors.paleGray
+    },
+    appBreakdownItem: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: spacing.sm
+        paddingVertical: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.paleGray
     },
-    appInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1
-    },
-    appColor: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        marginRight: spacing.sm
+    appColorDot: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        marginRight: spacing.md
     },
     appName: {
+        flex: 1,
         ...commonStyles.body,
-        color: colors.black
+        color: colors.black,
+        fontWeight: typography.fontWeight.medium
     },
-    appStats: {
+    appStatsContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.md
     },
-    timeSpent: {
+    appTime: {
         ...commonStyles.body,
-        color: colors.darkGray
-    },
-    coinsLost: {
-        ...commonStyles.body,
-        color: colors.error,
+        color: colors.darkGray,
+        fontWeight: typography.fontWeight.medium,
         minWidth: 60,
         textAlign: 'right'
     },
-    noDataContainer: {
-        alignItems: 'center',
-        paddingVertical: spacing.xl,
+    appCoins: {
+        ...commonStyles.body,
+        color: colors.error,
+        fontWeight: typography.fontWeight.bold,
+        minWidth: 50,
+        textAlign: 'right'
     },
     noDataText: {
         ...commonStyles.body,
         color: colors.darkGray,
         textAlign: 'center',
-        marginBottom: spacing.sm,
+        marginBottom: spacing.xs,
+    },
+    noDataContainer: {
+        paddingVertical: spacing.lg,
+        alignItems: 'center',
     },
     noDataSubtext: {
         ...commonStyles.caption,
         color: colors.mediumGray,
         textAlign: 'center',
+        fontStyle: 'italic',
     },
-    disclaimer: {
+    totalSummary: {
+        marginTop: spacing.md,
+        padding: spacing.sm,
+        backgroundColor: colors.lightGray,
+        borderRadius: spacing.sm,
+    },
+    totalText: {
         ...commonStyles.caption,
-        color: colors.mediumGray,
+        color: colors.darkGray,
         textAlign: 'center',
-        padding: spacing.md,
-        fontStyle: 'italic'
+        fontWeight: typography.fontWeight.medium,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        ...commonStyles.body,
+        color: colors.black,
+        marginTop: spacing.md
+    },
+    refreshButton: {
+        padding: spacing.sm,
+        backgroundColor: colors.primary,
+        borderRadius: spacing.sm,
+        minWidth: 40,
+        alignItems: 'center',
+    },
+    refreshButtonText: {
+        fontSize: 16,
+        color: colors.white,
     }
 }); 

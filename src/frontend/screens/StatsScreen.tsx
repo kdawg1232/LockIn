@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { getTodaysCoinTransactions, debugUserCoinTransactions } from '../services/timerService';
+import { getTodaysCoinTransactions } from '../services/timerService';
 import globalTimerService, { TIMER_EVENTS } from '../services/globalTimerService';
 import { getCurrentOpponent } from '../services/opponentService';
 import supabase from '../../lib/supabase';
@@ -11,8 +11,10 @@ import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
 import { useGlobalModal } from '../contexts/GlobalModalContext';
 import { GridLogo } from '../components/GridLogo';
 import { ChallengeResultsModal } from '../components/ChallengeResultsModal';
+import { MidnightProgressModal } from '../components/MidnightProgressModal';
 import { CarouselStatsCard } from '../components/CarouselStatsCard';
 import { getGroupOpponents, GroupOpponent } from '../services/groupOpponentService';
+import { colors, commonStyles, spacing, typography, shadows } from '../styles/theme';
 
 // Interface for daily stats data
 interface StatsData {
@@ -62,7 +64,7 @@ export const StatsScreen: React.FC = () => {
   const [currentUserName, setCurrentUserName] = useState<string>('You'); // Store actual user name
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<string>('00:05:00');
+  const [timeRemaining, setTimeRemaining] = useState<string>('00:00:00');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Carousel state for group opponents
@@ -82,6 +84,28 @@ export const StatsScreen: React.FC = () => {
       opponentScore: number;
     }[];
   } | null>(null);
+
+  // Midnight progress modal state
+  const [midnightProgressVisible, setMidnightProgressVisible] = useState(false);
+  const [midnightProgressData, setMidnightProgressData] = useState<{
+    userStats: {
+      coinsGained: number;
+      coinsLost: number;
+      netCoins: number;
+    };
+    userName: string;
+  } | null>(null);
+
+  // State for timer and challenge information
+  const [challengeState, setChallengeState] = useState<{
+    isInChallengeWindow: boolean;
+    isInRestPeriod: boolean;
+    currentPhase: string;
+  }>({
+    isInChallengeWindow: false,
+    isInRestPeriod: false,
+    currentPhase: 'rest'
+  });
 
   // Initialize current user and group opponents
   useEffect(() => {
@@ -214,22 +238,32 @@ export const StatsScreen: React.FC = () => {
   // Update timer display and check for completion
   useEffect(() => {
     const updateTimer = () => {
-      const remainingTime = globalTimerService.getNextOpponentTimeRemaining();
+      const remainingTime = globalTimerService.getTimeRemaining();
+      const state = globalTimerService.getChallengeState();
       setTimeRemaining(remainingTime);
-      
-      // If timer hits 0, show results
-      if (remainingTime === '00:00:00') {
-        handleTimerComplete();
-      }
+      setChallengeState(state);
     };
 
     // Update immediately
     updateTimer();
 
-    // Set up interval to update every second
-    const interval = setInterval(updateTimer, 1000);
+    // Set up timer to update every second
+    const timer = setInterval(updateTimer, 1000);
 
-    return () => clearInterval(interval);
+    // Listen for challenge period changes
+    const handleChallengeChange = (event: any) => {
+      console.log('📅 Challenge period changed:', event);
+      updateTimer();
+    };
+
+    globalTimerService.on('challengePeriodChange', handleChallengeChange);
+    globalTimerService.on('timerUpdate', updateTimer);
+
+    return () => {
+      clearInterval(timer);
+      globalTimerService.removeListener('challengePeriodChange', handleChallengeChange);
+      globalTimerService.removeListener('timerUpdate', updateTimer);
+    };
   }, []);
 
   // Handle timer completion
@@ -259,19 +293,32 @@ export const StatsScreen: React.FC = () => {
     }
   };
 
-  // Listen for challenge results
+  // Listen for challenge results and midnight progress
   useEffect(() => {
-    const handleChallengeResult = (result: any) => {
-      setChallengeResults(result);
-      showModal('challengeResults');
+    const handleMidnightProgress = (data: any) => {
+      console.log('🌙 Received midnight progress:', data);
+      // Show individual user progress at midnight
+      setMidnightProgressData(data);
+      setMidnightProgressVisible(true);
     };
 
-    globalTimerService.on(TIMER_EVENTS.CHALLENGE_RESULT, handleChallengeResult);
+    const handleChallengeResults = (data: any) => {
+      console.log('🌅 Received 6 AM challenge results:', data);
+      // Show challenge comparison results at 6 AM
+      if (data.results && data.results.length > 0) {
+        setChallengeResults(data);
+        showChallengeResults(data.results);
+      }
+    };
+
+    globalTimerService.on('midnightProgress', handleMidnightProgress);
+    globalTimerService.on('challengeResults', handleChallengeResults);
 
     return () => {
-      globalTimerService.removeListener(TIMER_EVENTS.CHALLENGE_RESULT, handleChallengeResult);
+      globalTimerService.removeListener('midnightProgress', handleMidnightProgress);
+      globalTimerService.removeListener('challengeResults', handleChallengeResults);
     };
-  }, [showModal]);
+  }, [showChallengeResults]);
 
   // Handle refreshing all opponents
   const handleRefreshOpponents = async () => {
@@ -296,14 +343,6 @@ export const StatsScreen: React.FC = () => {
   // Handle Lock In button press - navigates to TimerScreen
   const handleLockIn = () => {
     (navigation as any).navigate('Timer');
-  };
-
-  // DEBUG: Handle coin transaction debugging
-  const handleDebugCoins = async () => {
-    if (!currentUserId) return;
-    console.log('🔍 DEBUG: Starting coin transaction debug for current user...');
-    await debugUserCoinTransactions(currentUserId);
-    Alert.alert('Debug Complete', 'Check the console logs to see all your coin transactions. Look for lines starting with 💰');
   };
 
   // Note: Individual stats card rendering is now handled by CarouselStatsCard component
@@ -358,20 +397,62 @@ export const StatsScreen: React.FC = () => {
 
               {/* Action buttons - add screen swipe navigation here */}
               <View style={styles.buttonContainer} {...panHandlers}>
-                {/* Countdown Timer */}
-                <View style={styles.countdownContainer}>
-                  <Text style={styles.countdownLabel}>New opponent in:</Text>
-                  <Text style={styles.countdownTime}>{timeRemaining}</Text>
+                {/* Timer Section */}
+                <View style={styles.timerSection}>
+                  <Text style={styles.timerLabel}>
+                    {challengeState.isInChallengeWindow 
+                      ? 'Challenge ends in:' 
+                      : 'Next challenge starts in:'}
+                  </Text>
+                  <Text style={styles.timerText}>{timeRemaining}</Text>
+                  <Text style={styles.challengePhase}>
+                    {challengeState.isInChallengeWindow 
+                      ? '🔥 Challenge Active' 
+                      : '😴 Rest Period'}
+                  </Text>
                 </View>
 
                 {/* Lock In button */}
-                <TouchableOpacity 
-                  style={styles.lockInButton} 
-                  onPress={handleLockIn}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.lockInButtonText}>Lock In</Text>
-                </TouchableOpacity>
+                {currentOpponent ? (
+                  <TouchableOpacity 
+                    style={styles.lockInButton} 
+                    onPress={handleLockIn}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.lockInButtonText}>Lock In</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.noOpponentText}>
+                    No opponent available at the moment
+                  </Text>
+                )}
+
+                {/* Debug buttons for testing timing system (development only) */}
+                {__DEV__ && (
+                  <View style={styles.debugContainer}>
+                    <TouchableOpacity 
+                      style={styles.debugButton}
+                      onPress={() => {
+                        console.log('🧪 Force ending challenge (simulating midnight)');
+                        globalTimerService.forceChallengEnd();
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.debugButtonText}>Force Midnight</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.debugButton}
+                      onPress={() => {
+                        console.log('🧪 Force starting challenge (simulating 6 AM)');
+                        globalTimerService.forceChallengeStart();
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.debugButtonText}>Force 6 AM</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {/* Refresh Opponents Button */}
                 <TouchableOpacity 
@@ -384,15 +465,6 @@ export const StatsScreen: React.FC = () => {
                     {isRefreshing ? 'Refreshing Opponents...' : 'Refresh Opponents'}
                   </Text>
                 </TouchableOpacity>
-
-                {/* DEBUG: Debug Coins Button (temporary for development) */}
-                <TouchableOpacity 
-                  style={styles.debugButton}
-                  onPress={handleDebugCoins}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.debugButtonText}>Debug Coins</Text>
-                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -401,16 +473,19 @@ export const StatsScreen: React.FC = () => {
       <NavigationBar />
 
       {/* Challenge Results Modal */}
-      {challengeResults && (
-        <ChallengeResultsModal
-          visible={activeModal === 'challengeResults'}
-          onClose={() => {
-            hideModal();
-            setChallengeResults(null);
-          }}
-          results={challengeResults.results}
-        />
-      )}
+      <ChallengeResultsModal
+        visible={activeModal === 'challengeResults'}
+        results={challengeResults?.results || []}
+        onClose={hideModal}
+      />
+
+      {/* Midnight Progress Modal */}
+      <MidnightProgressModal
+        visible={midnightProgressVisible}
+        onClose={() => setMidnightProgressVisible(false)}
+        userStats={midnightProgressData?.userStats || { coinsGained: 0, coinsLost: 0, netCoins: 0 }}
+        userName={midnightProgressData?.userName || 'You'}
+      />
     </SafeAreaView>
   );
 };
@@ -600,12 +675,12 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
 
-  countdownContainer: {
+  timerSection: {
     alignItems: 'center',
     marginBottom: 16,
   },
 
-  countdownLabel: {
+  timerLabel: {
     fontSize: 14,
     color: '#A67C52',
     marginBottom: 4,
@@ -613,11 +688,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
 
-  countdownTime: {
+  timerText: {
     fontSize: 18,
     color: '#111827',
     fontWeight: '600',
     fontFamily: 'Inter',
+  },
+
+  challengePhase: {
+    fontSize: 14,
+    color: colors.darkGray,
+    fontWeight: typography.fontWeight.medium,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
 
   lockInButton: {
@@ -651,21 +734,43 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
 
-  // DEBUG: Debug button styles (temporary for development)
+  noOpponentText: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '600',
+    fontFamily: 'Inter',
+    textAlign: 'center',
+  },
+
+  debugContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+
   debugButton: {
-    backgroundColor: '#6B7280',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    width: '100%',
-    marginTop: 8,
+    backgroundColor: colors.darkGray,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.sm,
+    flex: 1,
   },
 
   debugButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: typography.fontWeight.medium,
     textAlign: 'center',
-    fontFamily: 'Inter',
+  },
+
+  disclaimer: {
+    textAlign: 'center',
+    color: colors.darkGray,
+    padding: spacing.md,
+    fontStyle: 'italic'
+  },
+
+  navigationBar: {
   },
 }); 
