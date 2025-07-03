@@ -1,4 +1,4 @@
-import { Platform, NativeModules } from 'react-native';
+import { Platform, NativeModules, NativeEventEmitter, DeviceEventEmitter } from 'react-native';
 import { AppUsageData, DailyActivityData, TRACKED_APPS, MINUTES_PER_COIN, COIN_LOSS_PER_30_MIN } from '../types/ActivityTracking';
 import supabase from '../../lib/supabase';
 import { addCoinTransaction } from './timerService';
@@ -11,6 +11,161 @@ class ActivityTrackingService {
     private monitoringIntervalMs: number = 5 * 60 * 1000; // 5 minutes
     private isMonitoring: boolean = false;
     private lastPenaltyTime: number = Date.now();
+    private nativeEventListeners: any[] = [];
+
+    constructor() {
+        this.setupNativeEventListeners();
+    }
+
+    // Setup native event listeners for real-time Screen Time events
+    private setupNativeEventListeners() {
+        if (Platform.OS !== 'ios') {
+            return;
+        }
+
+        console.log('📱 Setting up native Screen Time event listeners');
+
+        // Listen for coin penalties from the DeviceActivityMonitor extension
+        const coinPenaltyListener = DeviceEventEmitter.addListener(
+            'LockInCoinPenalty',
+            this.handleNativeCoinPenalty.bind(this)
+        );
+
+        // Listen for usage updates from the extension
+        const usageUpdateListener = DeviceEventEmitter.addListener(
+            'ScreenTimeUsageUpdate',
+            this.handleNativeUsageUpdate.bind(this)
+        );
+
+        // Listen for daily reset events
+        const dailyResetListener = DeviceEventEmitter.addListener(
+            'ScreenTimeDailyReset',
+            this.handleNativeDailyReset.bind(this)
+        );
+
+        // Store listeners for cleanup
+        this.nativeEventListeners = [
+            coinPenaltyListener,
+            usageUpdateListener,
+            dailyResetListener
+        ];
+
+        console.log('📱 Native event listeners setup complete');
+    }
+
+    // Handle real coin penalty from DeviceActivityMonitor extension
+    private async handleNativeCoinPenalty(eventData: any) {
+        console.log('📱 🚨 REAL coin penalty received from extension:', eventData);
+
+        const { penalty, reason, minutes, timestamp, isRealUsage, source } = eventData;
+
+        if (!isRealUsage || source !== 'extension') {
+            console.log('📱 Ignoring non-extension coin penalty');
+            return;
+        }
+
+        try {
+            const userId = await this.getCurrentUserId();
+            
+            console.log('📱 Applying PRODUCTION coin penalty:', {
+                userId,
+                penalty,
+                reason,
+                minutes
+            });
+
+            // Apply the coin penalty to user's account
+            const result = await addCoinTransaction(
+                userId,
+                -penalty, // Negative amount for penalty
+                'social_penalty',
+                undefined, // No session ID
+                `Real social media usage: ${minutes} minutes (detected by Screen Time)`
+            );
+
+            if (result.error) {
+                console.error('📱 Error applying coin penalty:', result.error);
+            } else {
+                console.log('📱 ✅ Production coin penalty applied successfully:', result.data);
+                
+                // Update our internal tracking
+                this.lastPenaltyTime = timestamp * 1000; // Convert to ms
+                
+                // Store the real usage data
+                await this.storeRealUsageData(minutes, penalty);
+            }
+        } catch (error) {
+            console.error('📱 Error handling native coin penalty:', error);
+        }
+    }
+
+    // Handle usage updates from extension
+    private async handleNativeUsageUpdate(eventData: any) {
+        console.log('📱 Real usage update from extension:', eventData);
+
+        const { totalMinutes, penalty, timestamp, source } = eventData;
+
+        if (source === 'extension') {
+            // This is real Screen Time data - update our records
+            try {
+                await this.storeRealUsageData(totalMinutes, penalty || 0);
+                console.log('📱 Real usage data stored successfully');
+            } catch (error) {
+                console.error('📱 Error storing real usage data:', error);
+            }
+        }
+    }
+
+    // Handle daily reset from extension
+    private handleNativeDailyReset(eventData: any) {
+        console.log('📱 Daily reset received from extension:', eventData);
+        
+        // Reset our local tracking
+        this.lastPenaltyTime = Date.now();
+        
+        console.log('📱 Local tracking reset for new day');
+    }
+
+    // Store real usage data from extension
+    private async storeRealUsageData(totalMinutes: number, coinsLost: number) {
+        try {
+            const userId = await this.getCurrentUserId();
+            const today = new Date().toISOString().split('T')[0];
+
+            // Create app usage data based on real Screen Time data
+            const realUsageData: AppUsageData[] = [{
+                appId: 'social_media_total',
+                appName: 'Social Media (Total)',
+                timeSpentMinutes: totalMinutes,
+                coinsLost: coinsLost,
+                color: '#FF6B6B'
+            }];
+
+            const dailyData: DailyActivityData = {
+                date: today,
+                totalCoinsLost: coinsLost,
+                appUsage: realUsageData
+            };
+
+            // Store the real data
+            await this.storeDailyActivity(dailyData, userId);
+            console.log('📱 Real Screen Time data stored in database');
+
+        } catch (error) {
+            console.error('📱 Error storing real usage data:', error);
+        }
+    }
+
+    // Cleanup event listeners
+    public cleanup() {
+        console.log('📱 Cleaning up native event listeners');
+        this.nativeEventListeners.forEach(listener => {
+            if (listener && typeof listener.remove === 'function') {
+                listener.remove();
+            }
+        });
+        this.nativeEventListeners = [];
+    }
 
     // Get real Screen Time data from iOS using Swift bridge
     private async getNativeScreenTimeData(): Promise<AppUsageData[]> {
@@ -20,7 +175,7 @@ class ActivityTrackingService {
         }
 
         try {
-            console.log('📱 Calling ScreenTimeManager for real usage data');
+            console.log('📱 Getting PRODUCTION Screen Time data from monitoring');
             
             // Check if ScreenTimeManager is available
             if (!ScreenTimeManager) {
@@ -28,21 +183,28 @@ class ActivityTrackingService {
                 return [];
             }
             
-            // Get today's app usage data from Swift module
-            const rawScreenTimeData = await ScreenTimeManager.getTodayAppUsage();
+            // First try to get currently tracked usage (PRODUCTION data)
+            let rawScreenTimeData;
+            try {
+                rawScreenTimeData = await ScreenTimeManager.getCurrentTrackedUsage();
+                console.log('📱 Got PRODUCTION tracked usage:', rawScreenTimeData?.length || 0, 'apps');
+            } catch (trackingError) {
+                console.log('📱 No tracked usage yet, trying general method');
+                rawScreenTimeData = await ScreenTimeManager.getTodayAppUsage();
+            }
             
             if (!rawScreenTimeData || !Array.isArray(rawScreenTimeData)) {
-                console.log('📱 No usage data returned from ScreenTimeManager');
+                console.log('📱 No usage data available - user may not have used social media yet today');
                 return [];
             }
             
-            console.log('📱 Received usage data:', rawScreenTimeData.length, 'apps');
+            console.log('📱 Processing REAL usage data:', rawScreenTimeData.length, 'apps');
             
-            // Parse the data using existing parser
+            // Parse the REAL data using existing parser
             return this.parseScreenTimeData(rawScreenTimeData);
             
         } catch (error) {
-            console.error('📱 Error getting Screen Time data:', error);
+            console.error('📱 Error getting PRODUCTION Screen Time data:', error);
             
             // If authorization is needed, request it
             if (error && typeof error === 'object' && 'code' in error && (error as any).code === 'NOT_AUTHORIZED') {
@@ -50,7 +212,7 @@ class ActivityTrackingService {
                 try {
                     await this.requestScreenTimeAuthorization();
                     // Retry after authorization
-                    const retryData = await ScreenTimeManager.getTodayAppUsage();
+                    const retryData = await ScreenTimeManager.getCurrentTrackedUsage();
                     return this.parseScreenTimeData(retryData || []);
                 } catch (authError) {
                     console.error('📱 Screen Time authorization failed:', authError);
@@ -61,31 +223,39 @@ class ActivityTrackingService {
         }
     }
 
-    // Future method to parse Screen Time API data
+    // Parse PRODUCTION Screen Time API data
     private parseScreenTimeData(rawScreenTimeData: any[]): AppUsageData[] {
-        // TODO: Parse actual Screen Time data format
-        // Expected format from iOS Screen Time API:
+        console.log('📱 Parsing PRODUCTION Screen Time data from iOS DeviceActivity monitoring');
+        
+        // Production format from iOS Screen Time API:
         // {
         //   bundleIdentifier: "com.burbn.instagram",
+        //   appName: "Instagram", 
         //   totalTime: TimeInterval (seconds),
         //   categoryIdentifier: "SocialNetworking"
         // }
         
-        return rawScreenTimeData
+        const parsedData = rawScreenTimeData
             .filter(app => this.isSocialMediaApp(app.bundleIdentifier))
             .map(app => {
                 const timeSpentMinutes = Math.floor(app.totalTime / 60);
                 const appId = this.bundleIdToAppId(app.bundleIdentifier);
                 const appInfo = TRACKED_APPS[appId];
                 
-                return {
+                const result = {
                     appId,
-                    appName: appInfo?.name || app.bundleIdentifier,
+                    appName: app.appName || appInfo?.name || app.bundleIdentifier,
                     timeSpentMinutes,
                     coinsLost: this.calculateCoinsLost(timeSpentMinutes),
                     color: appInfo?.color || '#888888'
                 };
+                
+                console.log(`📱 PRODUCTION: ${result.appName} = ${timeSpentMinutes} min, -${result.coinsLost} coins`);
+                return result;
             });
+        
+        console.log(`📱 Parsed ${parsedData.length} apps with REAL usage data`);
+        return parsedData;
     }
 
     // Helper to identify social media apps from bundle IDs
@@ -101,6 +271,7 @@ class ActivityTrackingService {
             'com.linkedin.LinkedIn',         // LinkedIn
             'com.pinterest',                 // Pinterest
             'com.discord',                   // Discord
+            'com.instagram.threads',         // Threads
         ];
         
         return socialMediaBundles.includes(bundleId);
@@ -115,6 +286,11 @@ class ActivityTrackingService {
             'com.toyopagroup.picaboo': 'snapchat',
             'com.zhiliaoapp.musically': 'tiktok',
             'com.facebook.Facebook': 'facebook',
+            'com.facebook.Messenger': 'messenger',
+            'com.linkedin.LinkedIn': 'linkedin',
+            'com.pinterest': 'pinterest',
+            'com.discord': 'discord',
+            'com.instagram.threads': 'threads',
         };
         
         return bundleMapping[bundleId] || bundleId;

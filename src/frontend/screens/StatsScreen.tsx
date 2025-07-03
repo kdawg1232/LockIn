@@ -205,9 +205,23 @@ export const StatsScreen: React.FC = () => {
       return;
     }
     
-    console.log('📈 Fetching user stats');
+    console.log('📈 Fetching user stats and updating Screen Time data');
     
     try {
+      // Always update Screen Time data first to get latest usage
+      try {
+        const activityTrackingService = await import('../services/activityTrackingService');
+        const authorized = await activityTrackingService.default.requestScreenTimeAuthorization();
+        if (authorized) {
+          console.log('📈 Updating Screen Time activity data');
+          await activityTrackingService.default.updateActivityData();
+        }
+      } catch (screenTimeError) {
+        console.log('📈 Screen Time update skipped:', screenTimeError);
+        // Continue with other stats even if Screen Time fails
+      }
+      
+      // Fetch coin transaction stats
       await fetchUserStats(currentUserId);
       setLastUpdated(new Date());
       

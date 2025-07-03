@@ -1,7 +1,8 @@
 #import <Foundation/Foundation.h>
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 
-@interface RCT_EXTERN_MODULE(ScreenTimeManager, NSObject)
+@interface RCT_EXTERN_MODULE(ScreenTimeManager, RCTEventEmitter)
 
 // Authorization methods
 RCT_EXTERN_METHOD(requestScreenTimeAuthorization:(RCTPromiseResolveBlock)resolve 
@@ -28,6 +29,9 @@ RCT_EXTERN_METHOD(stopBackgroundMonitoring)
 RCT_EXTERN_METHOD(restartBackgroundMonitoring)
 
 RCT_EXTERN_METHOD(getMonitoringStatus:(RCTPromiseResolveBlock)resolve 
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(getCurrentTrackedUsage:(RCTPromiseResolveBlock)resolve 
                  rejecter:(RCTPromiseRejectBlock)reject)
 
 + (BOOL)requiresMainQueueSetup

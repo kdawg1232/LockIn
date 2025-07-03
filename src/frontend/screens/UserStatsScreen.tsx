@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { AppUsageData } from '../types/ActivityTracking';
 import activityTrackingService from '../services/activityTrackingService';
 import { colors, typography, spacing, shadows, commonStyles } from '../styles/theme';
@@ -62,6 +62,16 @@ export const UserStatsScreen: React.FC = () => {
         }
     }, [isViewingOpponent, currentUserId]);
 
+    // Refresh data whenever user focuses on this screen
+    useFocusEffect(
+        React.useCallback(() => {
+            if (currentUserId && (isViewingOpponent ? opponentId : true)) {
+                console.log('📊 Screen focused - refreshing usage data');
+                loadTodayData();
+            }
+        }, [currentUserId, opponentId, isViewingOpponent])
+    );
+
     const loadTodayData = async () => {
         setIsLoading(true);
         try {
@@ -69,21 +79,25 @@ export const UserStatsScreen: React.FC = () => {
             
             const today = new Date().toISOString().split('T')[0];
             
-            // For current user, trigger real-time data update first
+            // For current user, always trigger real-time data update first
             if (!isViewingOpponent) {
                 console.log('📊 Updating current user real-time data');
                 
-                // Request Screen Time authorization if needed
+                // Always try to get fresh Screen Time data
                 try {
+                    // Request authorization and update data
                     const authorized = await activityTrackingService.requestScreenTimeAuthorization();
                     if (authorized) {
-                        console.log('📊 Screen Time authorized - updating activity data');
+                        console.log('📊 Screen Time authorized - getting fresh activity data');
+                        // Always update to get the most current data
                         await activityTrackingService.updateActivityData();
                     } else {
-                        console.log('📊 Screen Time not authorized - showing stored data only');
+                        console.log('📊 Screen Time not authorized - requesting permission');
+                        // Show user they need to enable Screen Time
                     }
                 } catch (authError) {
-                    console.error('📊 Authorization error:', authError);
+                    console.error('📊 Screen Time authorization error:', authError);
+                    // Continue with stored data if available
                 }
             }
             
